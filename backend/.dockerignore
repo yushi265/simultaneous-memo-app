@@ -1,0 +1,10 @@
+tmp
+.git
+.gitignore
+README.md
+.env
+.env.local
+.DS_Store
+*.exe
+*.test
+*.out
