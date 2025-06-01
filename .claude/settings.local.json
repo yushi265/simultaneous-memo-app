@@ -8,7 +8,13 @@
       "Bash(npm install:*)",
       "Bash(git add:*)",
       "Bash(go mod init:*)",
-      "Bash(go get:*)"
+      "Bash(go get:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker-compose ps:*)",
+      "Bash(docker-compose restart:*)",
+      "Bash(docker-compose down:*)",
+      "Bash(docker-compose logs:*)",
+      "Bash(npm uninstall:*)"
     ],
     "deny": []
   }
