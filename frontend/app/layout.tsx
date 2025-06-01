@@ -5,8 +5,11 @@ import { Inter } from 'next/font/google'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Notion-like Memo App',
-  description: 'Real-time collaborative memo application',
+  title: 'リアルタイムメモ',
+  description: 'リアルタイム共同編集メモアプリケーション',
+  icons: {
+    icon: '/logo.svg',
+  },
 }
 
 export default function RootLayout({

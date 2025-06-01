@@ -3,6 +3,7 @@
 import { PlusIcon } from '@radix-ui/react-icons'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
+import { Logo } from './Logo'
 
 export function Header() {
   const { setCurrentPage, addPage, currentPage } = useStore()
@@ -23,7 +24,10 @@ export function Header() {
   return (
     <header className="h-14 border-b border-gray-200 bg-white px-4 flex items-center justify-between">
       <div className="flex items-center gap-4">
-        <h1 className="text-xl font-semibold">Notion-like Memo</h1>
+        <div className="flex items-center gap-2">
+          <Logo className="w-8 h-8 text-gray-700" />
+          <h1 className="text-xl font-semibold">リアルタイムメモ</h1>
+        </div>
         <button
           onClick={handleNewPage}
           className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
