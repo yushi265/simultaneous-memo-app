@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -95,22 +96,29 @@ func (h *Handler) UpdatePage(c echo.Context) error {
 	return c.JSON(http.StatusOK, page)
 }
 
-// DeletePage deletes a page
+// DeletePage deletes a page and its associated images
 func (h *Handler) DeletePage(c echo.Context) error {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Invalid page ID",
+			"error": "無効なページIDです",
 		})
 	}
 
+	// Delete associated images first
+	if err := DeleteImagesByPageID(h.db, uint(id)); err != nil {
+		// Log error but continue with page deletion
+		fmt.Printf("ページ %d の画像削除エラー: %v\n", id, err)
+	}
+
+	// Delete the page
 	if err := models.DeletePage(h.db, uint(id)); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Failed to delete page",
+			"error": "ページの削除に失敗しました",
 		})
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{
-		"message": "Page deleted successfully",
+		"message": "ページと関連画像を削除しました",
 	})
 }

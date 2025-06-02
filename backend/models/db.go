@@ -15,5 +15,5 @@ func InitDB(dsn string) (*gorm.DB, error) {
 }
 
 func AutoMigrate(db *gorm.DB) error {
-	return db.AutoMigrate(&Page{})
+	return db.AutoMigrate(&Page{}, &Image{})
 }
