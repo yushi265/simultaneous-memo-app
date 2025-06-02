@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -51,13 +52,19 @@ func (h *Handler) CreatePage(c echo.Context) error {
 
 	// Set default content if not provided
 	if page.Content == nil {
-		page.Content = []byte(`{"blocks":[]}`)
+		page.Content = []byte(`{"doc":{"type":"doc","content":[]}}`)
 	}
 
 	if err := models.CreatePage(h.db, &page); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Failed to create page",
 		})
+	}
+
+	// Update image references
+	if err := models.UpdateImageReferences(h.db, page.ID, page.Content); err != nil {
+		// Log error but don't fail the request
+		fmt.Printf("画像参照の更新エラー: %v\n", err)
 	}
 
 	return c.JSON(http.StatusCreated, page)
@@ -85,6 +92,16 @@ func (h *Handler) UpdatePage(c echo.Context) error {
 		})
 	}
 
+	// Update image references if content was updated
+	if content, ok := updates["content"]; ok {
+		if contentJSON, ok := content.([]byte); ok {
+			if err := models.UpdateImageReferences(h.db, uint(id), contentJSON); err != nil {
+				// Log error but don't fail the request
+				fmt.Printf("画像参照の更新エラー: %v\n", err)
+			}
+		}
+	}
+
 	page, err := models.GetPageByID(h.db, uint(id))
 	if err != nil {
 		return c.JSON(http.StatusNotFound, map[string]string{
@@ -95,22 +112,29 @@ func (h *Handler) UpdatePage(c echo.Context) error {
 	return c.JSON(http.StatusOK, page)
 }
 
-// DeletePage deletes a page
+// DeletePage deletes a page and its associated images
 func (h *Handler) DeletePage(c echo.Context) error {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Invalid page ID",
+			"error": "無効なページIDです",
 		})
 	}
 
+	// Delete associated images first
+	if err := DeleteImagesByPageID(h.db, uint(id)); err != nil {
+		// Log error but continue with page deletion
+		fmt.Printf("ページ %d の画像削除エラー: %v\n", id, err)
+	}
+
+	// Delete the page
 	if err := models.DeletePage(h.db, uint(id)); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Failed to delete page",
+			"error": "ページの削除に失敗しました",
 		})
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{
-		"message": "Page deleted successfully",
+		"message": "ページと関連画像を削除しました",
 	})
 }

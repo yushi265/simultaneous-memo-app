@@ -50,7 +50,18 @@ func main() {
 
 	// File upload
 	api.POST("/upload", h.UploadFile)
-	api.GET("/files/:id", h.GetFile)
+	api.GET("/files/*", h.GetFile)
+
+	// Image management
+	api.GET("/images", h.GetImages)
+	api.GET("/images/:id", h.GetImageByID)
+	api.DELETE("/images/:id", h.DeleteImageByID)
+	
+	// Responsive image serving
+	api.GET("/img/*", h.ServeImage)
+	
+	// Admin endpoints
+	api.POST("/admin/cleanup-images", h.CleanupImages)
 
 	// WebSocket endpoint
 	ws := websocket.NewHub()

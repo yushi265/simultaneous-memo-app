@@ -5,6 +5,7 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
+import { ResizableImageExtension } from '@/lib/image-resize-extension'
 import { common, createLowlight } from 'lowlight'
 import Collaboration from '@tiptap/extension-collaboration'
 import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
@@ -13,6 +14,8 @@ import { WebsocketProvider } from 'y-websocket'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import { EditorMenuBar } from './EditorMenuBar'
+import { imageUploader } from '@/lib/image-upload'
+import { getFullImageUrl } from '@/lib/image-utils'
 
 const lowlight = createLowlight(common)
 
@@ -25,6 +28,7 @@ export function Editor({ pageId }: EditorProps) {
   const ydocRef = useRef<Y.Doc | null>(null)
   const providerRef = useRef<WebsocketProvider | null>(null)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const editorRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     // Initialize Yjs
@@ -58,6 +62,13 @@ export function Editor({ pageId }: EditorProps) {
       CodeBlockLowlight.configure({
         lowlight,
       }),
+      ResizableImageExtension.configure({
+        HTMLAttributes: {
+          class: 'max-w-full h-auto rounded-lg',
+        },
+        inline: false,
+        allowBase64: false,
+      }),
       ...(ydocRef.current && providerRef.current ? [
         Collaboration.configure({
           document: ydocRef.current,
@@ -82,6 +93,35 @@ export function Editor({ pageId }: EditorProps) {
         const content = editor.getJSON()
         saveContent(content)
       }, 1000)
+    },
+    editorProps: {
+      handlePaste: (view, event, slice) => {
+        // Handle image paste from clipboard
+        const clipboardData = event.clipboardData
+        if (clipboardData && editor) {
+          imageUploader.uploadFromClipboard(clipboardData, {
+            pageId,
+            onComplete: (response) => {
+              const imageUrl = getFullImageUrl(response.url)
+                
+              editor.chain().focus().setImage({
+                src: imageUrl,
+                alt: response.filename,
+                title: response.filename,
+                width: response.width,
+                height: response.height,
+                'data-image-id': response.id.toString(),
+                'data-width': response.width.toString(),
+                'data-height': response.height.toString(),
+              }).run()
+            },
+            onError: (error) => {
+              console.error('Paste image upload failed:', error)
+            }
+          })
+        }
+        return false // Let default paste handling continue
+      },
     },
   }, [pageId, ydocRef.current, providerRef.current])
 
@@ -110,6 +150,38 @@ export function Editor({ pageId }: EditorProps) {
     }
   }
 
+  // Handle drag and drop
+  const handleDrop = async (event: React.DragEvent) => {
+    event.preventDefault()
+    
+    const files = imageUploader.uploadFromDrop(event.dataTransfer, {
+      pageId,
+      onComplete: (response) => {
+        if (editor) {
+          const imageUrl = getFullImageUrl(response.url)
+            
+          editor.chain().focus().setImage({
+            src: imageUrl,
+            alt: response.filename,
+            title: response.filename,
+            width: response.width,
+            height: response.height,
+            'data-image-id': response.id.toString(),
+            'data-width': response.width.toString(),
+            'data-height': response.height.toString(),
+          }).run()
+        }
+      },
+      onError: (error) => {
+        console.error('Drop image upload failed:', error)
+      }
+    })
+  }
+
+  const handleDragOver = (event: React.DragEvent) => {
+    event.preventDefault()
+  }
+
   if (!currentPage) {
     return (
       <div className="flex-1 flex items-center justify-center text-gray-500">
@@ -133,9 +205,14 @@ export function Editor({ pageId }: EditorProps) {
         />
       </div>
       
-      <EditorMenuBar editor={editor} />
+      <EditorMenuBar editor={editor} pageId={pageId} />
       
-      <div className="flex-1 p-8 pt-4">
+      <div 
+        ref={editorRef}
+        className="flex-1 p-8 pt-4"
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+      >
         <EditorContent 
           editor={editor} 
           className="prose prose-lg max-w-none focus:outline-none"
