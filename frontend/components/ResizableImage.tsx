@@ -2,6 +2,7 @@
 
 import { NodeViewWrapper, NodeViewProps } from '@tiptap/react'
 import { useState, useRef, useCallback } from 'react'
+import { getFullImageUrl } from '@/lib/image-utils'
 
 export function ResizableImage({ node, updateAttributes, selected }: NodeViewProps) {
   const { src, alt, title, width, height } = node.attrs as {
@@ -16,6 +17,8 @@ export function ResizableImage({ node, updateAttributes, selected }: NodeViewPro
   }
   const [isResizing, setIsResizing] = useState(false)
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 })
+  const [imageLoaded, setImageLoaded] = useState(false)
+  const [imageError, setImageError] = useState(false)
   const imageRef = useRef<HTMLImageElement>(null)
 
   // Get original dimensions from data attributes or use current dimensions
@@ -61,6 +64,9 @@ export function ResizableImage({ node, updateAttributes, selected }: NodeViewPro
   }, [aspectRatio, height, originalHeight, originalWidth, updateAttributes, width])
 
   const handleImageLoad = () => {
+    setImageLoaded(true)
+    setImageError(false)
+    
     // If no dimensions are set, use the natural dimensions
     if (!width && !height && imageRef.current) {
       const natural = imageRef.current
@@ -73,13 +79,30 @@ export function ResizableImage({ node, updateAttributes, selected }: NodeViewPro
     }
   }
 
+  const handleImageError = () => {
+    setImageLoaded(false)
+    setImageError(true)
+  }
+
   const displayWidth = width || originalWidth || 'auto'
   const displayHeight = height || originalHeight || 'auto'
+  const fullImageUrl = getFullImageUrl(src || '')
 
   if (!src) {
     return (
       <NodeViewWrapper className="inline-block p-4 border border-red-300 bg-red-50 rounded">
         <div className="text-red-600">画像のURLが設定されていません</div>
+      </NodeViewWrapper>
+    )
+  }
+
+  if (imageError) {
+    return (
+      <NodeViewWrapper className="inline-block p-4 border border-red-300 bg-red-50 rounded">
+        <div className="text-red-600">
+          <div>画像の読み込みに失敗しました</div>
+          <div className="text-sm text-gray-500 mt-1">{fullImageUrl}</div>
+        </div>
       </NodeViewWrapper>
     )
   }
@@ -94,18 +117,28 @@ export function ResizableImage({ node, updateAttributes, selected }: NodeViewPro
     >
       <img
         ref={imageRef}
-        src={src}
+        src={fullImageUrl}
         alt={alt || ''}
         title={title || ''}
-        className="max-w-full h-auto rounded-lg block"
+        className={`max-w-full h-auto rounded-lg block transition-opacity duration-200 ${
+          imageLoaded ? 'opacity-100' : 'opacity-50'
+        }`}
         style={{
           width: displayWidth,
           height: displayHeight,
           cursor: selected ? 'pointer' : 'default',
         }}
         onLoad={handleImageLoad}
+        onError={handleImageError}
         draggable={false}
       />
+      
+      {/* Loading indicator */}
+      {!imageLoaded && !imageError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        </div>
+      )}
       
       {/* Resize handle - only show when selected */}
       {selected && (

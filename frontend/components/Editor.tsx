@@ -15,6 +15,7 @@ import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import { EditorMenuBar } from './EditorMenuBar'
 import { imageUploader } from '@/lib/image-upload'
+import { getFullImageUrl } from '@/lib/image-utils'
 
 const lowlight = createLowlight(common)
 
@@ -101,8 +102,10 @@ export function Editor({ pageId }: EditorProps) {
           imageUploader.uploadFromClipboard(clipboardData, {
             pageId,
             onComplete: (response) => {
+              const imageUrl = getFullImageUrl(response.url)
+                
               editor.chain().focus().setImage({
-                src: response.url,
+                src: imageUrl,
                 alt: response.filename,
                 title: response.filename,
                 width: response.width,
@@ -155,8 +158,10 @@ export function Editor({ pageId }: EditorProps) {
       pageId,
       onComplete: (response) => {
         if (editor) {
+          const imageUrl = getFullImageUrl(response.url)
+            
           editor.chain().focus().setImage({
-            src: response.url,
+            src: imageUrl,
             alt: response.filename,
             title: response.filename,
             width: response.width,

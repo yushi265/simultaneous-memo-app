@@ -38,22 +38,43 @@ func (h *Handler) ServeImage(c echo.Context) error {
 		})
 	}
 
+	// Initialize dimensions
+	width := 0
+	height := 0
+
+	// Check for size parameter (thumbnail)
+	size := c.QueryParam("size")
+	if size == "thumbnail" {
+		// Try to find thumbnail version first
+		dir := filepath.Dir(imagePath)
+		filename := filepath.Base(imagePath)
+		thumbPath := filepath.Join(dir, "thumb_"+filename)
+		
+		if _, err := os.Stat(thumbPath); err == nil {
+			// Serve existing thumbnail
+			return serveStaticFile(c, thumbPath)
+		}
+		// Fall through to generate thumbnail dynamically
+		width = 300
+		height = 300
+	}
+
 	// If no resizing parameters, serve original
-	if widthStr == "" && heightStr == "" && quality == "" && format == "" {
+	if widthStr == "" && heightStr == "" && quality == "" && format == "" && size == "" {
 		return h.GetFile(c)
 	}
 
-	// Parse dimensions
-	width := 0
-	height := 0
-	if widthStr != "" {
-		if w, err := strconv.Atoi(widthStr); err == nil && w > 0 && w <= 3000 {
-			width = w
+	// Parse dimensions (if not already set by thumbnail)
+	if width == 0 && height == 0 {
+		if widthStr != "" {
+			if w, err := strconv.Atoi(widthStr); err == nil && w > 0 && w <= 3000 {
+				width = w
+			}
 		}
-	}
-	if heightStr != "" {
-		if h, err := strconv.Atoi(heightStr); err == nil && h > 0 && h <= 3000 {
-			height = h
+		if heightStr != "" {
+			if h, err := strconv.Atoi(heightStr); err == nil && h > 0 && h <= 3000 {
+				height = h
+			}
 		}
 	}
 
@@ -125,4 +146,31 @@ func (h *Handler) ServeImage(c echo.Context) error {
 		// Default to JPEG
 		return imaging.Encode(c.Response().Writer, img, imaging.JPEG, imaging.JPEGQuality(qualityInt))
 	}
+}
+
+// serveStaticFile serves a static file with appropriate headers
+func serveStaticFile(c echo.Context, filePath string) error {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "ファイルを開けませんでした",
+		})
+	}
+	defer file.Close()
+
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "ファイル情報の取得に失敗しました",
+		})
+	}
+
+	// Set headers
+	contentType := GetMIMEType(filePath)
+	c.Response().Header().Set("Content-Type", contentType)
+	c.Response().Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	c.Response().Header().Set("Last-Modified", fileInfo.ModTime().Format(http.TimeFormat))
+	c.Response().Header().Set("X-Content-Type-Options", "nosniff")
+
+	return c.Stream(http.StatusOK, contentType, file)
 }

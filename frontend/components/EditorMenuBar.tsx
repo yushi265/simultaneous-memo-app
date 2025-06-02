@@ -11,6 +11,7 @@ import {
 } from '@radix-ui/react-icons'
 import { useRef, useState } from 'react'
 import { imageUploader } from '@/lib/image-upload'
+import { getFullImageUrl } from '@/lib/image-utils'
 
 interface EditorMenuBarProps {
   editor: Editor | null
@@ -38,8 +39,10 @@ export function EditorMenuBar({ editor, pageId }: EditorMenuBarProps) {
       })
 
       // Insert image into editor using custom command
+      const imageUrl = getFullImageUrl(response.url)
+        
       editor.chain().focus().setImage({
-        src: response.url,
+        src: imageUrl,
         alt: response.filename,
         title: response.filename,
         width: response.width,
