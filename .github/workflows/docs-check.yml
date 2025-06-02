@@ -1,0 +1,56 @@
+name: Documentation Check
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  check-docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Check if docs need updating
+      run: |
+        echo "Checking documentation consistency..."
+        
+        # Check if package.json was updated but README wasn't
+        if git diff --name-only HEAD~1 | grep -q "package.json" && ! git diff --name-only HEAD~1 | grep -q "README.md"; then
+          echo "::warning::package.json was updated but README.md was not. Consider updating README.md"
+        fi
+        
+        # Check if new API endpoints were added
+        if git diff HEAD~1 -- backend/main.go | grep -q "api\." && ! git diff --name-only HEAD~1 | grep -q "README.md"; then
+          echo "::warning::API endpoints may have been added. Consider updating README.md API section"
+        fi
+        
+        # Check if new components were added
+        if git diff --name-only HEAD~1 | grep -q "frontend/components/" && ! git diff --name-only HEAD~1 | grep -q "README.md"; then
+          echo "::warning::New components were added. Consider updating README.md project structure"
+        fi
+        
+        echo "Documentation check completed"
+
+  validate-readme:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Validate README links
+      run: |
+        # Check for broken internal links
+        echo "Validating README links..."
+        
+        # Check if referenced files exist
+        if grep -q "frontend/components/" README.md; then
+          for component in $(grep -o "frontend/components/[^)]*" README.md | cut -d'/' -f3 | cut -d'.' -f1); do
+            if [ ! -f "frontend/components/${component}.tsx" ]; then
+              echo "::error::Referenced component ${component}.tsx does not exist"
+              exit 1
+            fi
+          done
+        fi
+        
+        echo "README validation completed"

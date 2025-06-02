@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# Pre-commit hook to remind about documentation updates
+
+echo "🔍 Checking for documentation update requirements..."
+
+# Get list of changed files
+changed_files=$(git diff --cached --name-only)
+
+# Check if package.json was updated
+if echo "$changed_files" | grep -q "package.json"; then
+    if ! echo "$changed_files" | grep -q "README.md"; then
+        echo "⚠️  WARNING: package.json was updated but README.md was not."
+        echo "   Consider updating the technology stack section in README.md"
+        echo ""
+    fi
+fi
+
+# Check if new API endpoints were added
+if git diff --cached -- backend/main.go | grep -q "api\."; then
+    if ! echo "$changed_files" | grep -q "README.md"; then
+        echo "⚠️  WARNING: API endpoints may have been modified."
+        echo "   Consider updating the API endpoints section in README.md"
+        echo ""
+    fi
+fi
+
+# Check if new components were added
+if echo "$changed_files" | grep -q "frontend/components/.*\.tsx$"; then
+    if ! echo "$changed_files" | grep -q "README.md"; then
+        echo "⚠️  WARNING: New components were added."
+        echo "   Consider updating the project structure section in README.md"
+        echo ""
+    fi
+fi
+
+# Check if new handlers were added
+if echo "$changed_files" | grep -q "backend/handlers/.*\.go$"; then
+    if ! echo "$changed_files" | grep -q "README.md"; then
+        echo "⚠️  WARNING: New backend handlers were added."
+        echo "   Consider updating the API documentation in README.md"
+        echo ""
+    fi
+fi
+
+echo "✅ Documentation check completed"
+echo ""
+
+# Always allow commit to proceed
+exit 0
