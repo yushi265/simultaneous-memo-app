@@ -105,6 +105,9 @@ docker-compose restart frontend
 
 # 開発環境をクリーンアップ
 docker-compose down -v
+
+# ドキュメント更新リマインダーの設定（推奨）
+./scripts/setup-hooks.sh
 ```
 
 ## 📡 API エンドポイント
