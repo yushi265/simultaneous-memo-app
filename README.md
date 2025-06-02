@@ -161,13 +161,10 @@ docker-compose down -v
 │   │   └── file.go          # ファイルアップロード
 │   └── websocket/           # WebSocket処理
 ├── uploads/                 # アップロードファイル
-<<<<<<< HEAD
 │   └── images/              # 画像ファイル（YYYY/MM構造）
-=======
 ├── docs/                    # プロジェクトドキュメント
 │   ├── database-schema.md   # データベース設計
 │   └── architecture.md     # システムアーキテクチャ
->>>>>>> f336035 (docs: Add comprehensive database schema and system architecture documentation)
 └── docker-compose.yml       # Docker設定
 ```
 
