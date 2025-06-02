@@ -106,10 +106,10 @@ func (h *Handler) UploadFile(c echo.Context) error {
 	timestamp := now.Unix()
 	safeFilename := sanitizeFilename(file.Filename)
 	filename := fmt.Sprintf("%d_%s", timestamp, safeFilename)
-	filepath := filepath.Join(uploadsDir, filename)
+	fullPath := filepath.Join(uploadsDir, filename)
 
 	// Create destination file
-	dst, err := os.Create(filepath)
+	dst, err := os.Create(fullPath)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "ファイルの作成に失敗しました",
@@ -127,14 +127,14 @@ func (h *Handler) UploadFile(c echo.Context) error {
 
 	// Process image (resize and optimize)
 	config := DefaultImageConfig()
-	processedPath := filepath
+	processedPath := fullPath
 	
 	// For JPEG and PNG, apply processing
 	if contentType == "image/jpeg" || contentType == "image/png" {
-		err = ProcessImage(filepath, processedPath, config)
+		err = ProcessImage(fullPath, processedPath, config)
 		if err != nil {
 			// If processing fails, keep the original
-			processedPath = filepath
+			processedPath = fullPath
 		}
 	}
 
@@ -194,11 +194,12 @@ func (h *Handler) UploadFile(c echo.Context) error {
 		"filename":    filename,
 		"size":        finalSize,
 		"originalSize": file.Size,
-		"url":         fmt.Sprintf("/api/files%s", relativePath),
-		"thumbnailUrl": fmt.Sprintf("/api/files%s", thumbRelativePath),
+		"url":         fmt.Sprintf("/api/img%s", relativePath),
+		"thumbnailUrl": fmt.Sprintf("/api/img%s?size=thumbnail", relativePath),
 		"contentType": contentType,
 		"width":       width,
 		"height":      height,
+		"pageId":      imageRecord.PageID,
 		"uploadedAt":  imageRecord.CreatedAt,
 	})
 }
@@ -230,7 +231,7 @@ func sanitizeFilename(filename string) string {
 func (h *Handler) GetFile(c echo.Context) error {
 	// Parse the path parameter to support nested directories
 	path := c.Param("*")
-	filepath := filepath.Join("../uploads", path)
+	fullPath := filepath.Join("../uploads", path)
 
 	// Prevent path traversal attacks
 	if strings.Contains(path, "..") {
@@ -240,7 +241,7 @@ func (h *Handler) GetFile(c echo.Context) error {
 	}
 
 	// Check if file exists
-	fileInfo, err := os.Stat(filepath)
+	fileInfo, err := os.Stat(fullPath)
 	if os.IsNotExist(err) {
 		return c.JSON(http.StatusNotFound, map[string]string{
 			"error": "ファイルが見つかりません",
@@ -248,7 +249,7 @@ func (h *Handler) GetFile(c echo.Context) error {
 	}
 
 	// Open file to detect MIME type
-	file, err := os.Open(filepath)
+	file, err := os.Open(fullPath)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "ファイルを開けませんでした",
@@ -257,7 +258,7 @@ func (h *Handler) GetFile(c echo.Context) error {
 	defer file.Close()
 
 	// Get MIME type based on file extension first
-	contentType := GetMIMEType(filepath)
+	contentType := GetMIMEType(fullPath)
 	
 	// If unknown, detect from file content
 	if contentType == "application/octet-stream" {
@@ -269,7 +270,7 @@ func (h *Handler) GetFile(c echo.Context) error {
 	}
 
 	// Get appropriate headers for the file
-	headers := GetImageHeaders(filepath, fileInfo.Size())
+	headers := GetImageHeaders(fullPath, fileInfo.Size())
 	for key, value := range headers {
 		c.Response().Header().Set(key, value)
 	}
@@ -281,7 +282,7 @@ func (h *Handler) GetFile(c echo.Context) error {
 	}
 
 	// Set Content-Disposition for download
-	filename := filepath.Base(filepath)
+	filename := filepath.Base(fullPath)
 	if c.QueryParam("download") == "true" {
 		c.Response().Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
 	} else {

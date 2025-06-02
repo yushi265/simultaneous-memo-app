@@ -52,13 +52,19 @@ func (h *Handler) CreatePage(c echo.Context) error {
 
 	// Set default content if not provided
 	if page.Content == nil {
-		page.Content = []byte(`{"blocks":[]}`)
+		page.Content = []byte(`{"doc":{"type":"doc","content":[]}}`)
 	}
 
 	if err := models.CreatePage(h.db, &page); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Failed to create page",
 		})
+	}
+
+	// Update image references
+	if err := models.UpdateImageReferences(h.db, page.ID, page.Content); err != nil {
+		// Log error but don't fail the request
+		fmt.Printf("画像参照の更新エラー: %v\n", err)
 	}
 
 	return c.JSON(http.StatusCreated, page)
@@ -84,6 +90,16 @@ func (h *Handler) UpdatePage(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Failed to update page",
 		})
+	}
+
+	// Update image references if content was updated
+	if content, ok := updates["content"]; ok {
+		if contentJSON, ok := content.([]byte); ok {
+			if err := models.UpdateImageReferences(h.db, uint(id), contentJSON); err != nil {
+				// Log error but don't fail the request
+				fmt.Printf("画像参照の更新エラー: %v\n", err)
+			}
+		}
 	}
 
 	page, err := models.GetPageByID(h.db, uint(id))
