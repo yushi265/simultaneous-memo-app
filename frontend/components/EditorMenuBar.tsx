@@ -7,15 +7,65 @@ import {
   CodeIcon,
   ListBulletIcon,
   TextIcon,
+  ImageIcon,
 } from '@radix-ui/react-icons'
+import { useRef, useState } from 'react'
+import { imageUploader } from '@/lib/image-upload'
 
 interface EditorMenuBarProps {
   editor: Editor | null
+  pageId?: number
 }
 
-export function EditorMenuBar({ editor }: EditorMenuBarProps) {
+export function EditorMenuBar({ editor, pageId }: EditorMenuBarProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [isUploading, setIsUploading] = useState(false)
+
   if (!editor) {
     return null
+  }
+
+  const handleImageUpload = async (file: File) => {
+    try {
+      setIsUploading(true)
+      setUploadProgress(0)
+
+      const response = await imageUploader.uploadImage(file, {
+        pageId,
+        onProgress: (progress) => setUploadProgress(progress),
+        onStart: () => setUploadProgress(0),
+      })
+
+      // Insert image into editor using custom command
+      editor.chain().focus().setImage({
+        src: response.url,
+        alt: response.filename,
+        title: response.filename,
+        width: response.width,
+        height: response.height,
+        // Store image metadata for reference tracking
+        'data-image-id': response.id.toString(),
+        'data-width': response.width.toString(),
+        'data-height': response.height.toString(),
+      }).run()
+
+    } catch (error) {
+      console.error('Image upload failed:', error)
+      alert(error instanceof Error ? error.message : '画像のアップロードに失敗しました')
+    } finally {
+      setIsUploading(false)
+      setUploadProgress(0)
+    }
+  }
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      handleImageUpload(file)
+      // Clear the input so the same file can be selected again
+      event.target.value = ''
+    }
   }
 
   return (
@@ -113,6 +163,30 @@ export function EditorMenuBar({ editor }: EditorMenuBarProps) {
       >
         <span className="text-sm font-mono">&lt;/&gt;</span>
       </button>
+
+      <div className="w-px h-6 bg-gray-300 mx-1" />
+
+      <button
+        onClick={() => fileInputRef.current?.click()}
+        className="p-2 rounded hover:bg-gray-100 relative"
+        title="画像をアップロード"
+        disabled={isUploading}
+      >
+        <ImageIcon className="w-4 h-4" />
+        {isUploading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 rounded">
+            <div className="text-xs text-blue-600">{uploadProgress}%</div>
+          </div>
+        )}
+      </button>
+      
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileSelect}
+        className="hidden"
+      />
 
       <div className="w-px h-6 bg-gray-300 mx-1" />
 
