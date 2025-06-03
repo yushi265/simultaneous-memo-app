@@ -12,6 +12,8 @@
 - 💾 **自動保存**: 1秒のデバウンスで自動保存
 - 🖼️ **画像機能**: ドラッグ&ドロップ、クリップボード、ボタンからの画像アップロード
 - 🎛️ **画像編集**: エディター内でのリサイズ、レスポンシブ配信、サムネイル自動生成
+- 📎 **ファイルアップロード**: PDF、ドキュメント、アーカイブ、コードファイルのアップロード対応
+- 📁 **ファイル管理**: アップロードファイルの一覧表示、ダウンロード、削除機能
 - 🌐 **日本語対応**: 完全日本語化されたUI
 
 ## 🛠 技術スタック
@@ -119,14 +121,20 @@ docker-compose down -v
 - `PUT /api/pages/:id` - ページ更新
 - `DELETE /api/pages/:id` - ページ削除
 
-### 画像・ファイル管理
+### 画像管理
 - `POST /api/upload` - 画像アップロード（ページID関連付け対応）
 - `GET /api/img/*` - レスポンシブ画像配信（サムネイル対応）
 - `GET /api/images` - 画像一覧取得
 - `GET /api/images/:id` - 特定画像の詳細取得
 - `DELETE /api/images/:id` - 画像削除
 - `POST /api/admin/cleanup-images` - 孤立画像のクリーンアップ
-- `GET /api/files/*` - 汎用ファイル取得
+
+### ファイル管理
+- `POST /api/upload/file` - 汎用ファイルアップロード
+- `GET /api/files` - ファイル一覧取得（フィルタリング対応）
+- `GET /api/files/:id` - ファイルメタデータ取得
+- `DELETE /api/files/:id` - ファイル削除
+- `GET /api/file/*` - ファイル配信
 
 ### リアルタイム通信
 - `WebSocket /ws/:pageId` - リアルタイム同期
@@ -144,24 +152,28 @@ docker-compose down -v
 │   ├── components/          # Reactコンポーネント
 │   │   ├── Header.tsx       # ヘッダー
 │   │   ├── Sidebar.tsx      # サイドバー
-│   │   ├── Editor.tsx       # エディター（画像対応）
+│   │   ├── Editor.tsx       # エディター（画像・ファイル対応）
 │   │   ├── EditorMenuBar.tsx # エディターツールバー
 │   │   ├── ResizableImage.tsx # リサイズ可能画像コンポーネント
+│   │   ├── FileUpload.tsx   # ファイルアップロードコンポーネント
 │   │   └── Logo.tsx         # ロゴ
 │   ├── lib/                 # ユーティリティ
+│   │   ├── api.ts           # APIクライアント
 │   │   ├── image-upload.ts  # 画像アップロード処理
 │   │   ├── image-utils.ts   # 画像関連ユーティリティ
 │   │   └── image-resize-extension.ts # TipTap画像拡張
 │   └── public/              # 静的ファイル
 ├── backend/                 # Go バックエンド
 │   ├── config/              # 設定管理
-│   ├── models/              # データモデル（画像テーブル含む）
+│   ├── models/              # データモデル（画像・ファイルテーブル含む）
 │   ├── handlers/            # HTTPハンドラー
 │   │   ├── image*.go        # 画像処理関連ハンドラー
-│   │   └── file.go          # ファイルアップロード
+│   │   ├── file.go          # 画像アップロード
+│   │   └── file_general.go  # 汎用ファイルアップロード
 │   └── websocket/           # WebSocket処理
 ├── uploads/                 # アップロードファイル
-│   └── images/              # 画像ファイル（YYYY/MM構造）
+│   ├── images/              # 画像ファイル（YYYY/MM構造）
+│   └── files/               # 汎用ファイル（YYYY/MM構造）
 ├── docs/                    # プロジェクトドキュメント
 │   ├── database-schema.md   # データベース設計
 │   └── architecture.md     # システムアーキテクチャ
@@ -191,6 +203,32 @@ MIT License
 ### 制限事項
 - 最大ファイルサイズ: 10MB
 - 対応画像形式: JPEG、PNG、GIF、WebP
+
+## 📁 ファイル機能の詳細
+
+### サポートされているファイル形式
+
+**ドキュメント**
+- PDF、DOC、DOCX、XLS、XLSX、PPT、PPTX
+- TXT、CSV、RTF
+
+**アーカイブ**
+- ZIP、RAR、7Z、TAR、GZ
+
+**コードファイル**
+- JS、TS、JSON、XML、HTML、CSS
+- PY、GO、JAVA、CPP、C、SH、MD
+
+### ファイル機能
+- **アップロード方法**: ボタンクリック、ドラッグ&ドロップ、複数ファイル同時アップロード
+- **ファイル管理**: アップロードファイルの一覧表示、ダウンロード、削除
+- **ページ関連付け**: ファイルを特定のページに関連付けて管理
+- **フィルタリング**: ファイルタイプ別の絞り込み表示
+- **セキュリティ**: MIMEタイプ検証、ファイル名サニタイズ
+
+### 制限事項
+- 最大ファイルサイズ: 50MB
+- 対応ファイル形式: 上記のリストに記載されたもの
 
 ## 🤝 貢献
 

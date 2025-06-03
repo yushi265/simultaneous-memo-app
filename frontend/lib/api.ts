@@ -1,5 +1,7 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
+export const getApiUrl = () => API_URL
+
 export const api = {
   // Pages
   async getPages() {
@@ -42,7 +44,7 @@ export const api = {
     return response.json()
   },
 
-  // File upload
+  // Image upload
   async uploadFile(file: File) {
     const formData = new FormData()
     formData.append('file', file)
@@ -52,6 +54,51 @@ export const api = {
       body: formData
     })
     if (!response.ok) throw new Error('Failed to upload file')
+    return response.json()
+  },
+
+  // General file upload
+  async uploadGeneralFile(file: File, pageId?: number) {
+    const formData = new FormData()
+    formData.append('file', file)
+    if (pageId) {
+      formData.append('page_id', pageId.toString())
+    }
+    
+    const response = await fetch(`${API_URL}/api/upload/file`, {
+      method: 'POST',
+      body: formData
+    })
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to upload file')
+    }
+    return response.json()
+  },
+
+  async getFiles(pageId?: number, type?: string, page: number = 1, limit: number = 20) {
+    const params = new URLSearchParams()
+    if (pageId) params.append('page_id', pageId.toString())
+    if (type) params.append('type', type)
+    params.append('page', page.toString())
+    params.append('limit', limit.toString())
+    
+    const response = await fetch(`${API_URL}/api/files?${params.toString()}`)
+    if (!response.ok) throw new Error('Failed to fetch files')
+    return response.json()
+  },
+
+  async getFileMetadata(id: number) {
+    const response = await fetch(`${API_URL}/api/files/${id}`)
+    if (!response.ok) throw new Error('Failed to fetch file metadata')
+    return response.json()
+  },
+
+  async deleteFile(id: number) {
+    const response = await fetch(`${API_URL}/api/files/${id}`, {
+      method: 'DELETE'
+    })
+    if (!response.ok) throw new Error('Failed to delete file')
     return response.json()
   }
 }
