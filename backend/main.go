@@ -7,6 +7,7 @@ import (
 	"simultaneous-memo-app/backend/handlers"
 	"simultaneous-memo-app/backend/models"
 	"simultaneous-memo-app/backend/websocket"
+	customMiddleware "simultaneous-memo-app/backend/middleware"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -38,8 +39,15 @@ func main() {
 	// Initialize handlers
 	h := handlers.NewHandler(db)
 
+	// Initialize rate limiters
+	fileUploadLimiter := customMiddleware.FileUploadRateLimiter()
+	generalAPILimiter := customMiddleware.GeneralAPIRateLimiter()
+
 	// Routes
 	api := e.Group("/api")
+	
+	// Apply general rate limiting to all API routes
+	api.Use(generalAPILimiter.Middleware())
 	
 	// Page routes
 	api.GET("/pages", h.GetPages)
@@ -48,11 +56,11 @@ func main() {
 	api.PUT("/pages/:id", h.UpdatePage)
 	api.DELETE("/pages/:id", h.DeletePage)
 
-	// Image upload
-	api.POST("/upload", h.UploadFile)
+	// Image upload with stricter rate limiting
+	api.POST("/upload", h.UploadFile, fileUploadLimiter.Middleware())
 	
-	// General file upload
-	api.POST("/upload/file", h.UploadGeneralFile)
+	// General file upload with stricter rate limiting
+	api.POST("/upload/file", h.UploadGeneralFile, fileUploadLimiter.Middleware())
 	api.GET("/files", h.ListFiles)
 	api.GET("/files/:id", h.GetFileMetadata)
 	api.DELETE("/files/:id", h.DeleteFile)

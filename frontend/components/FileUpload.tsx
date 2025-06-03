@@ -47,8 +47,12 @@ export default function FileUpload({ pageId, onFileUploaded, onFileDeleted, show
   const loadFiles = async () => {
     try {
       const data = await api.getFiles(pageId)
-      console.log('Loaded files:', data) // Debug log
-      setFiles(data)
+      // Handle both old format (array) and new format (paginated response)
+      if (Array.isArray(data)) {
+        setFiles(data)
+      } else if (data.files) {
+        setFiles(data.files)
+      }
     } catch (err) {
       console.error('Failed to load files:', err)
     }
@@ -82,7 +86,7 @@ export default function FileUpload({ pageId, onFileUploaded, onFileDeleted, show
   }
 
   const handleDelete = async (fileId: number) => {
-    if (!confirm('Are you sure you want to delete this file?')) {
+    if (!confirm('このファイルを削除してもよろしいですか？')) {
       return
     }
 

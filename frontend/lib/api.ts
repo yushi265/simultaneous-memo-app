@@ -76,10 +76,12 @@ export const api = {
     return response.json()
   },
 
-  async getFiles(pageId?: number, type?: string) {
+  async getFiles(pageId?: number, type?: string, page: number = 1, limit: number = 20) {
     const params = new URLSearchParams()
     if (pageId) params.append('page_id', pageId.toString())
     if (type) params.append('type', type)
+    params.append('page', page.toString())
+    params.append('limit', limit.toString())
     
     const response = await fetch(`${API_URL}/api/files?${params.toString()}`)
     if (!response.ok) throw new Error('Failed to fetch files')

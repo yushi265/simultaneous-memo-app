@@ -156,14 +156,34 @@ func (h *Handler) UploadGeneralFile(c echo.Context) error {
 	return c.JSON(http.StatusOK, fileModel.ToMetadata(getBaseURL(c)))
 }
 
-// ListFiles returns all files with optional filtering
+// ListFiles returns files with pagination and optional filtering
 func (h *Handler) ListFiles(c echo.Context) error {
 	var files []models.File
 	query := h.db.Model(&models.File{})
 
+	// Pagination parameters
+	page := 1
+	limit := 20
+	if p := c.QueryParam("page"); p != "" {
+		if pageNum, err := strconv.Atoi(p); err == nil && pageNum > 0 {
+			page = pageNum
+		}
+	}
+	if l := c.QueryParam("limit"); l != "" {
+		if limitNum, err := strconv.Atoi(l); err == nil && limitNum > 0 && limitNum <= 100 {
+			limit = limitNum
+		}
+	}
+	offset := (page - 1) * limit
+
+	// Count total files
+	var total int64
+	countQuery := h.db.Model(&models.File{})
+
 	// Filter by page ID if provided
 	if pageID := c.QueryParam("page_id"); pageID != "" {
 		query = query.Where("page_id = ?", pageID)
+		countQuery = countQuery.Where("page_id = ?", pageID)
 	}
 
 	// Filter by file type if provided
@@ -171,15 +191,23 @@ func (h *Handler) ListFiles(c echo.Context) error {
 		switch fileType {
 		case "document":
 			query = query.Where("content_type LIKE ?", "%document%").Or("content_type LIKE ?", "%pdf%").Or("content_type LIKE ?", "%text%")
+			countQuery = countQuery.Where("content_type LIKE ?", "%document%").Or("content_type LIKE ?", "%pdf%").Or("content_type LIKE ?", "%text%")
 		case "archive":
 			query = query.Where("content_type LIKE ?", "%zip%").Or("content_type LIKE ?", "%compressed%")
+			countQuery = countQuery.Where("content_type LIKE ?", "%zip%").Or("content_type LIKE ?", "%compressed%")
 		case "code":
 			query = query.Where("content_type LIKE ?", "%javascript%").Or("content_type LIKE ?", "%json%").Or("content_type LIKE ?", "%xml%")
+			countQuery = countQuery.Where("content_type LIKE ?", "%javascript%").Or("content_type LIKE ?", "%json%").Or("content_type LIKE ?", "%xml%")
 		}
 	}
 
-	// Order by created date
-	if err := query.Order("created_at DESC").Find(&files).Error; err != nil {
+	// Get total count
+	if err := countQuery.Count(&total).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to count files"})
+	}
+
+	// Get paginated files
+	if err := query.Order("created_at DESC").Limit(limit).Offset(offset).Find(&files).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch files"})
 	}
 
@@ -190,7 +218,17 @@ func (h *Handler) ListFiles(c echo.Context) error {
 		metadata[i] = file.ToMetadata(baseURL)
 	}
 
-	return c.JSON(http.StatusOK, metadata)
+	// Calculate pagination info
+	totalPages := int((total + int64(limit) - 1) / int64(limit))
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"files":       metadata,
+		"total":       total,
+		"page":        page,
+		"limit":       limit,
+		"total_pages": totalPages,
+		"has_more":    page < totalPages,
+	})
 }
 
 // GetFileMetadata returns metadata for a specific file
@@ -234,14 +272,31 @@ func (h *Handler) ServeFile(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "No filename provided"})
 	}
 
-	// Log for debugging
-	fmt.Printf("ServeFile: Requested filename: %s\n", filename)
+	// Validate filename - no path traversal allowed
+	if strings.Contains(filename, "..") || strings.Contains(filename, "/") || strings.Contains(filename, "\\") {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid filename"})
+	}
 
 	// Find file in database
 	var file models.File
 	if err := h.db.Where("filename = ?", filename).First(&file).Error; err != nil {
-		fmt.Printf("ServeFile: Database error: %v\n", err)
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "File not found"})
+	}
+
+	// Validate that the file path is within uploads directory
+	absPath, err := filepath.Abs(file.Path)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Invalid file path"})
+	}
+	
+	uploadsDir, err := filepath.Abs("uploads")
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Server configuration error"})
+	}
+	
+	// Ensure the file path is within the uploads directory
+	if !strings.HasPrefix(absPath, uploadsDir) {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "Access denied"})
 	}
 
 	// Check if file exists
