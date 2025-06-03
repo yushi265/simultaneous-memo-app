@@ -48,9 +48,16 @@ func main() {
 	api.PUT("/pages/:id", h.UpdatePage)
 	api.DELETE("/pages/:id", h.DeletePage)
 
-	// File upload
+	// Image upload
 	api.POST("/upload", h.UploadFile)
+	
+	// General file upload
+	api.POST("/upload/file", h.UploadGeneralFile)
+	api.GET("/files", h.ListFiles)
+	api.GET("/files/:id", h.GetFileMetadata)
+	api.DELETE("/files/:id", h.DeleteFile)
 	api.GET("/files/*", h.GetFile)
+	api.GET("/file/*", h.ServeFile)
 
 	// Image management
 	api.GET("/images", h.GetImages)
