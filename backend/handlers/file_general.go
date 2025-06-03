@@ -234,9 +234,13 @@ func (h *Handler) ServeFile(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "No filename provided"})
 	}
 
+	// Log for debugging
+	fmt.Printf("ServeFile: Requested filename: %s\n", filename)
+
 	// Find file in database
 	var file models.File
 	if err := h.db.Where("filename = ?", filename).First(&file).Error; err != nil {
+		fmt.Printf("ServeFile: Database error: %v\n", err)
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "File not found"})
 	}
 
@@ -271,13 +275,33 @@ func sanitizeGeneralFilename(filename string) string {
 	// Replace spaces with underscores
 	filename = strings.ReplaceAll(filename, " ", "_")
 	
-	// Remove special characters except dots, dashes, and underscores
-	return strings.Map(func(r rune) rune {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '.' || r == '-' || r == '_' {
+	// Keep the file extension
+	ext := filepath.Ext(filename)
+	nameWithoutExt := strings.TrimSuffix(filename, ext)
+	
+	// For the name part, replace non-ASCII characters with underscores
+	// but keep basic alphanumeric, dots, dashes, and underscores
+	safeName := strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
 			return r
 		}
-		return -1
-	}, filename)
+		return '_'
+	}, nameWithoutExt)
+	
+	// Remove multiple consecutive underscores
+	for strings.Contains(safeName, "__") {
+		safeName = strings.ReplaceAll(safeName, "__", "_")
+	}
+	
+	// Trim underscores from start and end
+	safeName = strings.Trim(safeName, "_")
+	
+	// If the name is empty after sanitization, use a default
+	if safeName == "" {
+		safeName = "file"
+	}
+	
+	return safeName + ext
 }
 
 // getBaseURL constructs the base URL from the request

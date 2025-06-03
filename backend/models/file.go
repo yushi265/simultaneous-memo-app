@@ -37,7 +37,7 @@ func (f *File) ToMetadata(baseURL string) FileMetadata {
 		OriginalName: f.OriginalName,
 		ContentType:  f.ContentType,
 		Size:         f.Size,
-		URL:          baseURL + "/api/files/" + f.Filename,
+		URL:          baseURL + "/api/file/" + f.Filename,
 		PageID:       f.PageID,
 		CreatedAt:    f.CreatedAt,
 	}

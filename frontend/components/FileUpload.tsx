@@ -46,6 +46,7 @@ export default function FileUpload({ pageId, onFileUploaded, onFileDeleted }: Fi
   const loadFiles = async () => {
     try {
       const data = await api.getFiles(pageId)
+      console.log('Loaded files:', data) // Debug log
       setFiles(data)
     } catch (err) {
       console.error('Failed to load files:', err)
@@ -226,23 +227,27 @@ export default function FileUpload({ pageId, onFileUploaded, onFileDeleted }: Fi
                     </div>
                   </div>
                   <div className="flex items-center space-x-2 ml-4">
-                    <a
-                      href={file.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      onClick={() => window.open(file.url, '_blank')}
                       className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
                       title="開く"
                     >
                       <ExternalLinkIcon className="w-4 h-4" />
-                    </a>
-                    <a
-                      href={`${file.url}?download=true`}
-                      download
+                    </button>
+                    <button
+                      onClick={() => {
+                        const link = document.createElement('a')
+                        link.href = `${file.url}?download=true`
+                        link.download = file.original_name
+                        document.body.appendChild(link)
+                        link.click()
+                        document.body.removeChild(link)
+                      }}
                       className="p-1 text-gray-500 hover:text-green-600 transition-colors"
                       title="ダウンロード"
                     >
                       <DownloadIcon className="w-4 h-4" />
-                    </a>
+                    </button>
                     <button
                       onClick={() => handleDelete(file.id)}
                       className="p-1 text-gray-500 hover:text-red-600 transition-colors"

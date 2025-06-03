@@ -1,5 +1,7 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
+export const getApiUrl = () => API_URL
+
 export const api = {
   // Pages
   async getPages() {
