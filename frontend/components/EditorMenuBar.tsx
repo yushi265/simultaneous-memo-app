@@ -8,6 +8,7 @@ import {
   ListBulletIcon,
   TextIcon,
   ImageIcon,
+  FileIcon,
 } from '@radix-ui/react-icons'
 import { useRef, useState } from 'react'
 import { imageUploader } from '@/lib/image-upload'
@@ -16,9 +17,10 @@ import { getFullImageUrl } from '@/lib/image-utils'
 interface EditorMenuBarProps {
   editor: Editor | null
   pageId?: number
+  onFileUploadClick?: () => void
 }
 
-export function EditorMenuBar({ editor, pageId }: EditorMenuBarProps) {
+export function EditorMenuBar({ editor, pageId, onFileUploadClick }: EditorMenuBarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
@@ -190,6 +192,14 @@ export function EditorMenuBar({ editor, pageId }: EditorMenuBarProps) {
         onChange={handleFileSelect}
         className="hidden"
       />
+
+      <button
+        onClick={onFileUploadClick}
+        className="p-2 rounded hover:bg-gray-100"
+        title="ファイルをアップロード"
+      >
+        <FileIcon className="w-4 h-4" />
+      </button>
 
       <div className="w-px h-6 bg-gray-300 mx-1" />
 

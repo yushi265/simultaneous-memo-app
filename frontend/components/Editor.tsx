@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -16,6 +16,7 @@ import { api } from '@/lib/api'
 import { EditorMenuBar } from './EditorMenuBar'
 import { imageUploader } from '@/lib/image-upload'
 import { getFullImageUrl } from '@/lib/image-utils'
+import FileUpload from './FileUpload'
 
 const lowlight = createLowlight(common)
 
@@ -29,6 +30,7 @@ export function Editor({ pageId }: EditorProps) {
   const providerRef = useRef<WebsocketProvider | null>(null)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const editorRef = useRef<HTMLDivElement>(null)
+  const [showFileUpload, setShowFileUpload] = useState(false)
 
   useEffect(() => {
     // Initialize Yjs
@@ -205,7 +207,17 @@ export function Editor({ pageId }: EditorProps) {
         />
       </div>
       
-      <EditorMenuBar editor={editor} pageId={pageId} />
+      <EditorMenuBar 
+        editor={editor} 
+        pageId={pageId} 
+        onFileUploadClick={() => setShowFileUpload(!showFileUpload)}
+      />
+      
+      {showFileUpload && (
+        <div className="border-b p-4">
+          <FileUpload pageId={pageId} />
+        </div>
+      )}
       
       <div 
         ref={editorRef}
