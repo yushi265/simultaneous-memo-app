@@ -58,15 +58,17 @@ docker-compose restart frontend  # Restart specific service
 /
 ├── frontend/           # Next.js frontend application
 │   ├── app/           # App Router pages and layouts
-│   ├── components/    # React components (Header, Sidebar, Editor, Logo)
+│   ├── components/    # React components (Header, Sidebar, Editor, Logo, FileUpload)
 │   ├── lib/          # Utility functions (store, API client)
 │   └── public/       # Static assets (logo.svg)
 ├── backend/           # Go API server
 │   ├── config/       # Configuration management
-│   ├── models/       # Database models (Page, BlockContent)
-│   ├── handlers/     # HTTP request handlers (pages, files)
+│   ├── models/       # Database models (Page, BlockContent, Image, File)
+│   ├── handlers/     # HTTP request handlers (pages, files, images)
 │   └── websocket/    # WebSocket handlers (hub, client)
 ├── uploads/          # File upload directory
+│   ├── images/      # Image files (YYYY/MM structure)
+│   └── files/       # General files (YYYY/MM structure)
 └── docker-compose.yml # Docker development environment
 ```
 
@@ -78,8 +80,9 @@ docker-compose restart frontend  # Restart specific service
 4. PostgreSQL with JSONB for flexible content storage
 5. Docker-based development environment
 6. Custom logo and Japanese UI
-7. File upload functionality
-8. Auto-save with debouncing (1-second delay)
+7. Image upload functionality with resize and optimization
+8. General file upload functionality (PDF, documents, archives, code files)
+9. Auto-save with debouncing (1-second delay)
 
 ## API Endpoints
 
@@ -90,9 +93,20 @@ docker-compose restart frontend  # Restart specific service
 - `PUT /api/pages/:id` - Update page
 - `DELETE /api/pages/:id` - Delete page
 
+### Images
+- `POST /api/upload` - Upload image
+- `GET /api/img/*` - Responsive image serving
+- `GET /api/images` - List all images
+- `GET /api/images/:id` - Get specific image
+- `DELETE /api/images/:id` - Delete image
+- `POST /api/admin/cleanup-images` - Cleanup orphaned images
+
 ### Files
-- `POST /api/upload` - Upload file
-- `GET /api/files/:id` - Get uploaded file
+- `POST /api/upload/file` - Upload general file
+- `GET /api/files` - List all files (with optional filtering)
+- `GET /api/files/:id` - Get file metadata
+- `DELETE /api/files/:id` - Delete file
+- `GET /api/file/*` - Serve uploaded file
 
 ### WebSocket
 - `GET /ws/:pageId` - WebSocket endpoint for real-time sync
@@ -143,3 +157,32 @@ docker-compose restart frontend  # Restart specific service
 - `GET /api/images/:id` - 特定画像の取得
 - `DELETE /api/images/:id` - 画像削除
 - `POST /api/admin/cleanup-images` - 孤立画像のクリーンアップ
+
+## ファイルアップロード機能
+
+リアルタイム協調メモアプリに汎用的なファイルアップロード機能を実装しました。
+
+### 実装済み機能
+
+**バックエンド**
+- 汎用ファイルアップロードハンドラー（file_general.go）
+- ファイルタイプバリデーション（PDF、ドキュメント、アーカイブ、コードファイル）
+- ファイルサイズ制限（50MB）
+- ファイルメタデータのデータベース保存（Fileモデル）
+- ファイル配信エンドポイント
+- ファイル削除機能（ファイルシステム + DB）
+- ページとファイルの関連付け管理
+- 年月別ディレクトリ構造（`/uploads/files/YYYY/MM/`）
+
+**フロントエンド**
+- FileUploadコンポーネント（ドラッグ&ドロップ対応）
+- エディターツールバーのファイルアップロードボタン
+- ファイル一覧表示（アイコン付き）
+- ファイルダウンロード・削除機能
+- アップロード進捗表示
+- エラーハンドリング
+
+### サポートファイルタイプ
+- ドキュメント: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, CSV, RTF
+- アーカイブ: ZIP, RAR, 7Z, TAR, GZ
+- コードファイル: JS, TS, JSON, XML, HTML, CSS, PY, GO, JAVA, CPP, C, SH, MD
