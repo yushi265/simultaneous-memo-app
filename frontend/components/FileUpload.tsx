@@ -28,9 +28,10 @@ interface FileUploadProps {
   pageId?: number
   onFileUploaded?: (file: FileMetadata) => void
   onFileDeleted?: (fileId: number) => void
+  showUploadArea?: boolean
 }
 
-export default function FileUpload({ pageId, onFileUploaded, onFileDeleted }: FileUploadProps) {
+export default function FileUpload({ pageId, onFileUploaded, onFileDeleted, showUploadArea = true }: FileUploadProps) {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -141,18 +142,24 @@ export default function FileUpload({ pageId, onFileUploaded, onFileDeleted }: Fi
     else return (bytes / 1048576).toFixed(2) + ' MB'
   }
 
+  // Show nothing if no upload area and no files
+  if (!showUploadArea && files.length === 0) {
+    return null
+  }
+
   return (
     <div className="space-y-4">
       {/* Upload Area */}
-      <div
-        onDragEnter={handleDragEnter}
-        onDragLeave={handleDragLeave}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
-        className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-          isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
-        }`}
-      >
+      {showUploadArea && (
+        <div
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+          className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+            isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
+          }`}
+        >
         <input
           ref={fileInputRef}
           type="file"
@@ -176,7 +183,8 @@ export default function FileUpload({ pageId, onFileUploaded, onFileDeleted }: Fi
         <p className="text-xs text-gray-500 mt-1">
           最大50MB (PDF, ドキュメント, アーカイブ, コードファイル)
         </p>
-      </div>
+        </div>
+      )}
 
       {/* Upload Progress */}
       {isUploading && (

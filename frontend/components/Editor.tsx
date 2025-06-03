@@ -31,6 +31,7 @@ export function Editor({ pageId }: EditorProps) {
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const editorRef = useRef<HTMLDivElement>(null)
   const [showFileUpload, setShowFileUpload] = useState(false)
+  const [hasFiles, setHasFiles] = useState(false)
 
   useEffect(() => {
     // Initialize Yjs
@@ -213,11 +214,12 @@ export function Editor({ pageId }: EditorProps) {
         onFileUploadClick={() => setShowFileUpload(!showFileUpload)}
       />
       
-      {showFileUpload && (
-        <div className="border-b p-4">
-          <FileUpload pageId={pageId} />
-        </div>
-      )}
+      <div className="border-b p-4">
+        <FileUpload 
+          pageId={pageId} 
+          showUploadArea={showFileUpload}
+        />
+      </div>
       
       <div 
         ref={editorRef}
