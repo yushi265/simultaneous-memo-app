@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"simultaneous-memo-app/backend/middleware"
 	"github.com/labstack/echo/v4"
 )
 
@@ -18,8 +19,14 @@ func (h *Handler) CleanupImages(c echo.Context) error {
 		})
 	}
 
+	// Get workspace ID from context
+	workspaceID, err := middleware.GetWorkspaceID(c)
+	if err != nil {
+		return err
+	}
+
 	// Cleanup orphaned images older than 24 hours
-	err := CleanupOrphanedImages(h.db, 24*time.Hour)
+	err = CleanupOrphanedImages(h.db, workspaceID, 24*time.Hour)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 			"error": "クリーンアップ中にエラーが発生しました",

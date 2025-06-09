@@ -3,16 +3,22 @@ package handlers
 import (
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"simultaneous-memo-app/backend/models"
+	"simultaneous-memo-app/backend/middleware"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
-// GetPages retrieves all pages
+// GetPages retrieves all pages in the user's workspace
 func (h *Handler) GetPages(c echo.Context) error {
-	pages, err := models.GetAllPages(h.db)
+	workspaceID, err := middleware.GetWorkspaceID(c)
+	if err != nil {
+		return err
+	}
+
+	pages, err := models.GetAllPages(h.db, workspaceID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Failed to retrieve pages",
@@ -24,14 +30,19 @@ func (h *Handler) GetPages(c echo.Context) error {
 
 // GetPage retrieves a single page by ID
 func (h *Handler) GetPage(c echo.Context) error {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{
 			"error": "Invalid page ID",
 		})
 	}
 
-	page, err := models.GetPageByID(h.db, uint(id))
+	workspaceID, err := middleware.GetWorkspaceID(c)
+	if err != nil {
+		return err
+	}
+
+	page, err := models.GetPageByID(h.db, id, workspaceID)
 	if err != nil {
 		return c.JSON(http.StatusNotFound, map[string]string{
 			"error": "Page not found",
@@ -50,12 +61,25 @@ func (h *Handler) CreatePage(c echo.Context) error {
 		})
 	}
 
+	userID, err := middleware.GetUserID(c)
+	if err != nil {
+		return err
+	}
+
+	workspaceID, err := middleware.GetWorkspaceID(c)
+	if err != nil {
+		return err
+	}
+
+	// Set workspace ID
+	page.WorkspaceID = workspaceID
+
 	// Set default content if not provided
 	if page.Content == nil {
 		page.Content = []byte(`{"doc":{"type":"doc","content":[]}}`)
 	}
 
-	if err := models.CreatePage(h.db, &page); err != nil {
+	if err := models.CreatePage(h.db, &page, userID); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Failed to create page",
 		})
@@ -72,11 +96,21 @@ func (h *Handler) CreatePage(c echo.Context) error {
 
 // UpdatePage updates an existing page
 func (h *Handler) UpdatePage(c echo.Context) error {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{
 			"error": "Invalid page ID",
 		})
+	}
+
+	userID, err := middleware.GetUserID(c)
+	if err != nil {
+		return err
+	}
+
+	workspaceID, err := middleware.GetWorkspaceID(c)
+	if err != nil {
+		return err
 	}
 
 	var updates map[string]interface{}
@@ -86,7 +120,7 @@ func (h *Handler) UpdatePage(c echo.Context) error {
 		})
 	}
 
-	if err := models.UpdatePage(h.db, uint(id), updates); err != nil {
+	if err := models.UpdatePage(h.db, id, workspaceID, updates, userID); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Failed to update page",
 		})
@@ -95,14 +129,14 @@ func (h *Handler) UpdatePage(c echo.Context) error {
 	// Update image references if content was updated
 	if content, ok := updates["content"]; ok {
 		if contentJSON, ok := content.([]byte); ok {
-			if err := models.UpdateImageReferences(h.db, uint(id), contentJSON); err != nil {
+			if err := models.UpdateImageReferences(h.db, id, contentJSON); err != nil {
 				// Log error but don't fail the request
 				fmt.Printf("画像参照の更新エラー: %v\n", err)
 			}
 		}
 	}
 
-	page, err := models.GetPageByID(h.db, uint(id))
+	page, err := models.GetPageByID(h.db, id, workspaceID)
 	if err != nil {
 		return c.JSON(http.StatusNotFound, map[string]string{
 			"error": "Page not found",
@@ -114,21 +148,26 @@ func (h *Handler) UpdatePage(c echo.Context) error {
 
 // DeletePage deletes a page and its associated images
 func (h *Handler) DeletePage(c echo.Context) error {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{
 			"error": "無効なページIDです",
 		})
 	}
 
+	workspaceID, err := middleware.GetWorkspaceID(c)
+	if err != nil {
+		return err
+	}
+
 	// Delete associated images first
-	if err := DeleteImagesByPageID(h.db, uint(id)); err != nil {
+	if err := DeleteImagesByPageID(h.db, id, workspaceID); err != nil {
 		// Log error but continue with page deletion
-		fmt.Printf("ページ %d の画像削除エラー: %v\n", id, err)
+		fmt.Printf("ページ %v の画像削除エラー: %v\n", id, err)
 	}
 
 	// Delete the page
-	if err := models.DeletePage(h.db, uint(id)); err != nil {
+	if err := models.DeletePage(h.db, id, workspaceID); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "ページの削除に失敗しました",
 		})

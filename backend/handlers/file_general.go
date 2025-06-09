@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"simultaneous-memo-app/backend/models"
+	"simultaneous-memo-app/backend/middleware"
 	"github.com/labstack/echo/v4"
+	"github.com/google/uuid"
 )
 
 const (
@@ -57,6 +59,17 @@ var AllowedFileTypes = map[string][]string{
 
 // UploadGeneralFile handles non-image file uploads
 func (h *Handler) UploadGeneralFile(c echo.Context) error {
+	// Get workspace and user IDs from context
+	workspaceID, err := middleware.GetWorkspaceID(c)
+	if err != nil {
+		return err
+	}
+
+	userID, err := middleware.GetUserID(c)
+	if err != nil {
+		return err
+	}
+
 	file, err := c.FormFile("file")
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "No file provided"})
@@ -129,16 +142,17 @@ func (h *Handler) UploadGeneralFile(c echo.Context) error {
 	}
 
 	// Get page ID if provided
-	var pageID *uint
+	var pageID *uuid.UUID
 	if pageIDStr := c.FormValue("page_id"); pageIDStr != "" {
-		if id, err := strconv.ParseUint(pageIDStr, 10, 32); err == nil {
-			pageIDUint := uint(id)
-			pageID = &pageIDUint
+		if id, err := uuid.Parse(pageIDStr); err == nil {
+			pageID = &id
 		}
 	}
 
 	// Save file metadata to database
 	fileModel := &models.File{
+		WorkspaceID:  workspaceID,
+		UserID:       userID,
 		Filename:     filename,
 		OriginalName: file.Filename,
 		ContentType:  contentType,
@@ -158,8 +172,14 @@ func (h *Handler) UploadGeneralFile(c echo.Context) error {
 
 // ListFiles returns files with pagination and optional filtering
 func (h *Handler) ListFiles(c echo.Context) error {
+	// Get workspace ID from context
+	workspaceID, err := middleware.GetWorkspaceID(c)
+	if err != nil {
+		return err
+	}
+
 	var files []models.File
-	query := h.db.Model(&models.File{})
+	query := h.db.Model(&models.File{}).Where("workspace_id = ?", workspaceID)
 
 	// Pagination parameters
 	page := 1
@@ -178,7 +198,7 @@ func (h *Handler) ListFiles(c echo.Context) error {
 
 	// Count total files
 	var total int64
-	countQuery := h.db.Model(&models.File{})
+	countQuery := h.db.Model(&models.File{}).Where("workspace_id = ?", workspaceID)
 
 	// Filter by page ID if provided
 	if pageID := c.QueryParam("page_id"); pageID != "" {
@@ -233,10 +253,16 @@ func (h *Handler) ListFiles(c echo.Context) error {
 
 // GetFileMetadata returns metadata for a specific file
 func (h *Handler) GetFileMetadata(c echo.Context) error {
+	// Get workspace ID from context
+	workspaceID, err := middleware.GetWorkspaceID(c)
+	if err != nil {
+		return err
+	}
+
 	id := c.Param("id")
 	
 	var file models.File
-	if err := h.db.First(&file, id).Error; err != nil {
+	if err := h.db.Where("id = ? AND workspace_id = ?", id, workspaceID).First(&file).Error; err != nil {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "File not found"})
 	}
 
@@ -245,10 +271,16 @@ func (h *Handler) GetFileMetadata(c echo.Context) error {
 
 // DeleteFile deletes a file and its metadata
 func (h *Handler) DeleteFile(c echo.Context) error {
+	// Get workspace ID from context
+	workspaceID, err := middleware.GetWorkspaceID(c)
+	if err != nil {
+		return err
+	}
+
 	id := c.Param("id")
 	
 	var file models.File
-	if err := h.db.First(&file, id).Error; err != nil {
+	if err := h.db.Where("id = ? AND workspace_id = ?", id, workspaceID).First(&file).Error; err != nil {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "File not found"})
 	}
 
@@ -267,6 +299,12 @@ func (h *Handler) DeleteFile(c echo.Context) error {
 
 // ServeFile serves uploaded files
 func (h *Handler) ServeFile(c echo.Context) error {
+	// Get workspace ID from context
+	workspaceID, err := middleware.GetWorkspaceID(c)
+	if err != nil {
+		return err
+	}
+
 	filename := c.Param("*")
 	if filename == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "No filename provided"})
@@ -279,7 +317,7 @@ func (h *Handler) ServeFile(c echo.Context) error {
 
 	// Find file in database
 	var file models.File
-	if err := h.db.Where("filename = ?", filename).First(&file).Error; err != nil {
+	if err := h.db.Where("filename = ? AND workspace_id = ?", filename, workspaceID).First(&file).Error; err != nil {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "File not found"})
 	}
 

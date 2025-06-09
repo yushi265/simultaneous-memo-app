@@ -3,12 +3,14 @@ package models
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 // Image represents an uploaded image with metadata
 type Image struct {
 	ID            uint      `json:"id" gorm:"primaryKey"`
+	WorkspaceID   uuid.UUID `json:"workspace_id" gorm:"type:uuid;not null"`
 	Filename      string    `json:"filename" gorm:"not null"`
 	OriginalName  string    `json:"original_name"`
 	Path          string    `json:"path" gorm:"not null"`
@@ -17,9 +19,15 @@ type Image struct {
 	Width         int       `json:"width"`
 	Height        int       `json:"height"`
 	ContentType   string    `json:"content_type"`
-	PageID        *uint     `json:"page_id" gorm:"index"`
+	PageID        *uuid.UUID `json:"page_id" gorm:"type:uuid;index"`
+	UserID        uuid.UUID  `json:"user_id" gorm:"type:uuid"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
+	
+	// Relationships
+	Workspace     Workspace  `gorm:"foreignKey:WorkspaceID" json:"workspace,omitempty"`
+	Page          *Page      `gorm:"foreignKey:PageID" json:"page,omitempty"`
+	User          User       `gorm:"foreignKey:UserID" json:"user,omitempty"`
 }
 
 // CreateImage creates a new image record
@@ -28,9 +36,9 @@ func CreateImage(db *gorm.DB, image *Image) error {
 }
 
 // GetImageByID retrieves an image by ID
-func GetImageByID(db *gorm.DB, id uint) (*Image, error) {
+func GetImageByID(db *gorm.DB, id uint, workspaceID uuid.UUID) (*Image, error) {
 	var image Image
-	err := db.First(&image, id).Error
+	err := db.Where("id = ? AND workspace_id = ?", id, workspaceID).First(&image).Error
 	if err != nil {
 		return nil, err
 	}
@@ -38,9 +46,9 @@ func GetImageByID(db *gorm.DB, id uint) (*Image, error) {
 }
 
 // GetImageByFilename retrieves an image by filename
-func GetImageByFilename(db *gorm.DB, filename string) (*Image, error) {
+func GetImageByFilename(db *gorm.DB, filename string, workspaceID uuid.UUID) (*Image, error) {
 	var image Image
-	err := db.Where("filename = ?", filename).First(&image).Error
+	err := db.Where("filename = ? AND workspace_id = ?", filename, workspaceID).First(&image).Error
 	if err != nil {
 		return nil, err
 	}
@@ -48,25 +56,25 @@ func GetImageByFilename(db *gorm.DB, filename string) (*Image, error) {
 }
 
 // GetImagesByPageID retrieves all images associated with a page
-func GetImagesByPageID(db *gorm.DB, pageID uint) ([]Image, error) {
+func GetImagesByPageID(db *gorm.DB, pageID uuid.UUID, workspaceID uuid.UUID) ([]Image, error) {
 	var images []Image
-	err := db.Where("page_id = ?", pageID).Order("created_at DESC").Find(&images).Error
+	err := db.Where("page_id = ? AND workspace_id = ?", pageID, workspaceID).Order("created_at DESC").Find(&images).Error
 	return images, err
 }
 
 // UpdateImage updates an existing image
-func UpdateImage(db *gorm.DB, id uint, updates map[string]interface{}) error {
-	return db.Model(&Image{}).Where("id = ?", id).Updates(updates).Error
+func UpdateImage(db *gorm.DB, id uint, workspaceID uuid.UUID, updates map[string]interface{}) error {
+	return db.Model(&Image{}).Where("id = ? AND workspace_id = ?", id, workspaceID).Updates(updates).Error
 }
 
 // DeleteImage deletes an image
-func DeleteImage(db *gorm.DB, id uint) error {
-	return db.Delete(&Image{}, id).Error
+func DeleteImage(db *gorm.DB, id uint, workspaceID uuid.UUID) error {
+	return db.Where("id = ? AND workspace_id = ?", id, workspaceID).Delete(&Image{}).Error
 }
 
-// GetOrphanedImages retrieves images not associated with any page
-func GetOrphanedImages(db *gorm.DB, olderThan time.Time) ([]Image, error) {
+// GetOrphanedImages retrieves images not associated with any page in a workspace
+func GetOrphanedImages(db *gorm.DB, workspaceID uuid.UUID, olderThan time.Time) ([]Image, error) {
 	var images []Image
-	err := db.Where("page_id IS NULL AND created_at < ?", olderThan).Find(&images).Error
+	err := db.Where("workspace_id = ? AND page_id IS NULL AND created_at < ?", workspaceID, olderThan).Find(&images).Error
 	return images, err
 }

@@ -15,5 +15,16 @@ func InitDB(dsn string) (*gorm.DB, error) {
 }
 
 func AutoMigrate(db *gorm.DB) error {
-	return db.AutoMigrate(&Page{}, &Image{}, &File{})
+	// Enable UUID extension for PostgreSQL
+	db.Exec("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";")
+	
+	// Migrate models in the correct order
+	return db.AutoMigrate(
+		&User{},
+		&Workspace{},
+		&WorkspaceMember{},
+		&Page{},
+		&Image{},
+		&File{},
+	)
 }
