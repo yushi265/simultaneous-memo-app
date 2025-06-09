@@ -2,6 +2,35 @@ import { User, Workspace } from './store'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
+// Retry configuration for authentication calls
+const RETRY_ATTEMPTS = 3
+const RETRY_DELAY = 2000 // 2 seconds for auth calls
+
+// Exponential backoff retry logic for auth calls
+async function retryAuthFetch(url: string, options: RequestInit, attempts: number = RETRY_ATTEMPTS): Promise<Response> {
+  try {
+    const response = await fetch(url, options)
+    
+    // If 429 error, retry with exponential backoff
+    if (response.status === 429 && attempts > 0) {
+      const delay = RETRY_DELAY * (RETRY_ATTEMPTS - attempts + 1)
+      console.log(`Auth request rate limited, retrying in ${delay}ms... (${attempts} attempts left)`)
+      await new Promise(resolve => setTimeout(resolve, delay))
+      return retryAuthFetch(url, options, attempts - 1)
+    }
+    
+    return response
+  } catch (error) {
+    if (attempts > 0) {
+      const delay = RETRY_DELAY * (RETRY_ATTEMPTS - attempts + 1)
+      console.log(`Auth request failed, retrying in ${delay}ms... (${attempts} attempts left)`)
+      await new Promise(resolve => setTimeout(resolve, delay))
+      return retryAuthFetch(url, options, attempts - 1)
+    }
+    throw error
+  }
+}
+
 export interface LoginRequest {
   email: string
   password: string
@@ -70,11 +99,17 @@ export const authApi = {
   },
 
   async me(token: string): Promise<UserWithWorkspaces> {
-    const response = await fetch(`${API_URL}/api/auth/me`, {
+    const response = await retryAuthFetch(`${API_URL}/api/auth/me`, {
       headers: getAuthHeaders(token)
     })
     
     if (!response.ok) {
+      // Don't treat 429 as an authentication failure if we've exhausted retries
+      if (response.status === 429) {
+        console.warn('Authentication check failed due to rate limiting')
+        throw new Error('Rate limited - please try again in a moment')
+      }
+      
       const error = await response.json()
       throw new Error(error.error || 'Failed to get user info')
     }

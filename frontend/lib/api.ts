@@ -4,6 +4,35 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
 export const getApiUrl = () => API_URL
 
+// Retry configuration
+const RETRY_ATTEMPTS = 3
+const RETRY_DELAY = 1000 // 1 second
+
+// Exponential backoff retry logic
+async function retryFetch(url: string, options: RequestInit, attempts: number = RETRY_ATTEMPTS): Promise<Response> {
+  try {
+    const response = await fetch(url, options)
+    
+    // If 429 error, retry with exponential backoff
+    if (response.status === 429 && attempts > 0) {
+      const delay = RETRY_DELAY * (RETRY_ATTEMPTS - attempts + 1)
+      console.log(`Rate limited, retrying in ${delay}ms... (${attempts} attempts left)`)
+      await new Promise(resolve => setTimeout(resolve, delay))
+      return retryFetch(url, options, attempts - 1)
+    }
+    
+    return response
+  } catch (error) {
+    if (attempts > 0) {
+      const delay = RETRY_DELAY * (RETRY_ATTEMPTS - attempts + 1)
+      console.log(`Request failed, retrying in ${delay}ms... (${attempts} attempts left)`)
+      await new Promise(resolve => setTimeout(resolve, delay))
+      return retryFetch(url, options, attempts - 1)
+    }
+    throw error
+  }
+}
+
 // Helper function to get token from auth store
 const getToken = () => {
   if (typeof window !== 'undefined') {
@@ -17,7 +46,7 @@ export const api = {
   // Pages
   async getPages() {
     const token = getToken()
-    const response = await fetch(`${API_URL}/api/pages`, {
+    const response = await retryFetch(`${API_URL}/api/pages`, {
       headers: getAuthHeaders(token)
     })
     if (!response.ok) throw new Error('Failed to fetch pages')
@@ -26,7 +55,7 @@ export const api = {
 
   async getPage(id: string) {
     const token = getToken()
-    const response = await fetch(`${API_URL}/api/pages/${id}`, {
+    const response = await retryFetch(`${API_URL}/api/pages/${id}`, {
       headers: getAuthHeaders(token)
     })
     if (!response.ok) throw new Error('Failed to fetch page')
@@ -119,7 +148,7 @@ export const api = {
     params.append('page', page.toString())
     params.append('limit', limit.toString())
     
-    const response = await fetch(`${API_URL}/api/files?${params.toString()}`, {
+    const response = await retryFetch(`${API_URL}/api/files?${params.toString()}`, {
       headers: getAuthHeaders(token)
     })
     if (!response.ok) throw new Error('Failed to fetch files')

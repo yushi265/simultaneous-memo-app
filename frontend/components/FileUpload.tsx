@@ -38,25 +38,49 @@ export default function FileUpload({ pageId, onFileUploaded, onFileDeleted, show
   const [files, setFiles] = useState<FileMetadata[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const filesCacheRef = useRef<{ [pageId: string]: FileMetadata[] }>({})
+  const loadTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Load files on component mount
+  // Load files with caching and debouncing
   React.useEffect(() => {
-    loadFiles()
+    debouncedLoadFiles()
   }, [pageId])
 
-  const loadFiles = async () => {
+  const loadFiles = async (forceFetch: boolean = false) => {
+    // Check cache first
+    if (!forceFetch && filesCacheRef.current[pageId]) {
+      setFiles(filesCacheRef.current[pageId])
+      return
+    }
+
     try {
       const data = await api.getFiles(pageId)
+      let filesList: FileMetadata[] = []
+      
       // Handle both old format (array) and new format (paginated response)
       if (Array.isArray(data)) {
-        setFiles(data)
+        filesList = data
       } else if (data.files) {
-        setFiles(data.files)
+        filesList = data.files
       }
+      
+      // Cache the result
+      filesCacheRef.current[pageId] = filesList
+      setFiles(filesList)
     } catch (err) {
       console.error('Failed to load files:', err)
     }
   }
+
+  const debouncedLoadFiles = useCallback(() => {
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current)
+    }
+    
+    loadTimeoutRef.current = setTimeout(() => {
+      loadFiles()
+    }, 300) // 300ms debounce
+  }, [pageId])
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files
@@ -72,7 +96,10 @@ export default function FileUpload({ pageId, onFileUploaded, onFileDeleted, show
     for (const file of filesToUpload) {
       try {
         const result = await api.uploadGeneralFile(file, pageId)
-        setFiles(prev => [...prev, result])
+        const newFilesList = [...files, result]
+        setFiles(newFilesList)
+        // Update cache
+        filesCacheRef.current[pageId] = newFilesList
         if (onFileUploaded) {
           onFileUploaded(result)
         }
@@ -92,7 +119,10 @@ export default function FileUpload({ pageId, onFileUploaded, onFileDeleted, show
 
     try {
       await api.deleteFile(fileId)
-      setFiles(prev => prev.filter(f => f.id !== fileId))
+      const updatedFiles = files.filter(f => f.id !== fileId)
+      setFiles(updatedFiles)
+      // Update cache
+      filesCacheRef.current[pageId] = updatedFiles
       if (onFileDeleted) {
         onFileDeleted(fileId)
       }
