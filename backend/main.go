@@ -43,6 +43,7 @@ func main() {
 	// Initialize handlers
 	h := handlers.NewHandler(db)
 	authHandler := handlers.NewAuthHandler(db)
+	workspaceHandler := handlers.NewWorkspaceHandler(db)
 
 	// Initialize rate limiters
 	fileUploadLimiter := customMiddleware.FileUploadRateLimiter()
@@ -64,6 +65,14 @@ func main() {
 	// Protected routes group
 	protected := api.Group("")
 	protected.Use(customMiddleware.AuthMiddleware())
+	
+	// Workspace routes (protected)
+	protected.GET("/workspaces", workspaceHandler.GetWorkspaces)
+	protected.POST("/workspaces", workspaceHandler.CreateWorkspace)
+	protected.GET("/workspaces/:id", workspaceHandler.GetWorkspace)
+	protected.PUT("/workspaces/:id", workspaceHandler.UpdateWorkspace)
+	protected.DELETE("/workspaces/:id", workspaceHandler.DeleteWorkspace)
+	protected.POST("/workspaces/:id/switch", workspaceHandler.SwitchWorkspace)
 	
 	// Page routes (protected)
 	protected.GET("/pages", h.GetPages)

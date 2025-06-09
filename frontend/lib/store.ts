@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 
 export interface User {
   id: string
@@ -120,6 +120,18 @@ export const useAuthStore = create<AuthState>()(persist(
   }),
   {
     name: 'auth-storage',
+    storage: createJSONStorage(() => {
+      // Only use localStorage on client side
+      if (typeof window !== 'undefined') {
+        return localStorage
+      }
+      // Return a no-op storage for SSR
+      return {
+        getItem: () => null,
+        setItem: () => {},
+        removeItem: () => {}
+      }
+    }),
     partialize: (state) => ({
       user: state.user,
       token: state.token,

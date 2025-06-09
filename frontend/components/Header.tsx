@@ -1,17 +1,20 @@
 'use client'
 
-import { PlusIcon, ExitIcon, PersonIcon } from '@radix-ui/react-icons'
+import { PlusIcon, ExitIcon, PersonIcon, GearIcon } from '@radix-ui/react-icons'
 import { useStore, useAuthStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import { authApi } from '@/lib/auth-api'
 import { Logo } from './Logo'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import WorkspaceSwitcher from './WorkspaceSwitcher'
+import CreateWorkspaceModal from './CreateWorkspaceModal'
 
 export function Header() {
   const { setCurrentPage, addPage, currentPage } = useStore()
   const { user, currentWorkspace, logout, token } = useAuthStore()
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [showCreateWorkspace, setShowCreateWorkspace] = useState(false)
   const router = useRouter()
   
   const handleNewPage = async () => {
@@ -30,10 +33,15 @@ export function Header() {
   return (
     <header className="h-14 border-b border-gray-200 bg-white px-4 flex items-center justify-between">
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <Logo className="w-8 h-8 text-gray-700" />
-          <h1 className="text-xl font-semibold">リアルタイムメモ</h1>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Logo className="w-8 h-8 text-gray-700" />
+            <h1 className="text-xl font-semibold">リアルタイムメモ</h1>
+          </div>
+          
+          <WorkspaceSwitcher onCreateWorkspace={() => setShowCreateWorkspace(true)} />
         </div>
+        
         <button
           onClick={handleNewPage}
           className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
@@ -75,6 +83,17 @@ export function Header() {
               
               <div className="py-1">
                 <button
+                  onClick={() => {
+                    setShowUserMenu(false)
+                    router.push('/workspace/settings')
+                  }}
+                  className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  <GearIcon className="w-4 h-4" />
+                  ワークスペース設定
+                </button>
+                
+                <button
                   onClick={async () => {
                     try {
                       if (token) {
@@ -97,6 +116,15 @@ export function Header() {
           )}
         </div>
       </div>
+      
+      <CreateWorkspaceModal
+        isOpen={showCreateWorkspace}
+        onClose={() => setShowCreateWorkspace(false)}
+        onSuccess={() => {
+          // Close modal and let WorkspaceSwitcher reload its list
+          setShowCreateWorkspace(false)
+        }}
+      />
     </header>
   )
 }
