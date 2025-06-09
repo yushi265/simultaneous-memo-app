@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-リアルタイムメモ - Real-time collaborative memo application with simultaneous editing capabilities.
+リアルタイムメモ - Real-time collaborative memo application with simultaneous editing capabilities and multi-user workspace support.
 
 ## Technology Stack
 
@@ -14,15 +14,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Tailwind CSS v3 for styling
 - TipTap v2 for rich text editing with rich formatting options
 - Yjs for real-time synchronization
-- Zustand for state management
+- Zustand for state management with persistence
 - Radix UI icons
 - Custom logo component
 
 ### Backend
 - Go 1.23 with Echo v4 framework
-- PostgreSQL 16 with JSONB for page content
+- PostgreSQL 16 with JSONB for page content and UUID for primary keys
+- JWT authentication with bcrypt password hashing
 - WebSocket for real-time communication with Gorilla WebSocket
-- GORM v2 as ORM with datatypes support
+- GORM v2 as ORM with datatypes and hooks support
+- Rate limiting middleware for API protection
 - Air for hot reloading in development
 
 ## Development Commands
@@ -74,42 +76,59 @@ docker-compose restart frontend  # Restart specific service
 
 ## Key Features
 
-1. Real-time collaborative editing using Yjs CRDT
-2. Rich text editor with TipTap (headings, lists, code blocks, formatting)
-3. WebSocket-based synchronization with user cursors
-4. PostgreSQL with JSONB for flexible content storage
-5. Docker-based development environment
-6. Custom logo and Japanese UI
-7. Image upload functionality with resize and optimization
-8. General file upload functionality (PDF, documents, archives, code files)
-9. Auto-save with debouncing (1-second delay)
+1. **User Authentication & Authorization**: JWT-based secure login with bcrypt password hashing
+2. **Multi-Workspace Support**: Personal and team workspaces with role-based access control
+3. **Real-time Collaborative Editing**: Using Yjs CRDT for conflict-free synchronization
+4. **Rich Text Editor**: TipTap with headings, lists, code blocks, and rich formatting
+5. **WebSocket Synchronization**: Real-time updates with user cursors and authentication
+6. **PostgreSQL with JSONB**: Flexible content storage with UUID primary keys
+7. **Performance Optimization**: Request caching, retry logic, and rate limiting
+8. **Image Management**: Upload, resize, optimization, and responsive serving
+9. **File Management**: General file upload with type validation and metadata storage
+10. **Auto-save**: 3-second debounced saving with error handling
+11. **Japanese UI**: Complete Japanese localization
+12. **Docker Environment**: Containerized development setup
 
 ## API Endpoints
 
+### Authentication
+- `POST /api/auth/register` - User registration with auto workspace creation
+- `POST /api/auth/login` - User login with JWT token
+- `POST /api/auth/logout` - User logout
+- `GET /api/auth/me` - Get current user info and workspaces
+
+### Workspaces
+- `GET /api/workspaces` - List user workspaces
+- `POST /api/workspaces` - Create new workspace
+- `GET /api/workspaces/:id` - Get workspace details
+- `PUT /api/workspaces/:id` - Update workspace
+- `DELETE /api/workspaces/:id` - Delete workspace
+- `POST /api/workspaces/:id/switch` - Switch to workspace (new JWT)
+
 ### Pages
-- `GET /api/pages` - List all pages
-- `POST /api/pages` - Create new page
+- `GET /api/pages` - List workspace pages
+- `POST /api/pages` - Create new page in current workspace
 - `GET /api/pages/:id` - Get specific page
 - `PUT /api/pages/:id` - Update page
 - `DELETE /api/pages/:id` - Delete page
 
 ### Images
-- `POST /api/upload` - Upload image
-- `GET /api/img/*` - Responsive image serving
-- `GET /api/images` - List all images
-- `GET /api/images/:id` - Get specific image
+- `POST /api/upload` - Upload image with page association
+- `GET /api/img/*` - Responsive image serving with optimization
+- `GET /api/images` - List images in current workspace
+- `GET /api/images/:id` - Get specific image metadata
 - `DELETE /api/images/:id` - Delete image
 - `POST /api/admin/cleanup-images` - Cleanup orphaned images
 
 ### Files
-- `POST /api/upload/file` - Upload general file
-- `GET /api/files` - List all files (with optional filtering)
+- `POST /api/upload/file` - Upload general file with validation
+- `GET /api/files` - List files with filtering support
 - `GET /api/files/:id` - Get file metadata
 - `DELETE /api/files/:id` - Delete file
-- `GET /api/file/*` - Serve uploaded file
+- `GET /api/file/*` - Serve uploaded file with access control
 
 ### WebSocket
-- `GET /ws/:pageId` - WebSocket endpoint for real-time sync
+- `GET /ws/:pageId` - Real-time sync with authentication support
 
 ## URLs
 
@@ -217,49 +236,55 @@ docker-compose restart frontend  # Restart specific service
 - AI機能（要約、翻訳、文章校正）
 - エクスポート機能（PDF、Word）
 
-## ユーザー認証機能実装TODO
+## 実装状況
 
-### フェーズ1: 基本認証 (実装中)
+### ✅ フェーズ1: ユーザー認証 (完了)
 
-#### バックエンド
-- [x] Userモデルの作成
-- [x] Workspaceモデルの作成（個人ワークスペース用）
-- [x] WorkspaceMemberモデルの作成
-- [x] 既存モデル（Page, Image, File）へのworkspace_id追加
-- [x] データベースマイグレーションの実行
-- [x] bcryptによるパスワードハッシュ化処理
-- [x] JWT生成・検証処理の実装
-- [x] 認証ミドルウェアの実装
-- [x] /api/auth/register エンドポイント（個人ワークスペース自動作成）
-- [x] /api/auth/login エンドポイント
-- [x] /api/auth/logout エンドポイント
-- [x] /api/auth/me エンドポイント
-- [x] 既存APIへの認証・ワークスペース制約追加
+**バックエンド**
+- [x] User/Workspace/WorkspaceMemberモデル（UUID対応）
+- [x] ワークスペース分離によるデータベースマイグレーション
+- [x] bcryptパスワードハッシュ化 + JWT認証
+- [x] ワークスペースコンテキスト付き認証ミドルウェア
+- [x] 認証API完全実装（register/login/logout/me）
+- [x] 全エンドポイントへのワークスペース制約追加
 
-#### フロントエンド
-- [x] ログインページの作成
-- [x] 登録ページの作成
-- [x] Zustand認証ストアの実装
-- [x] APIクライアントへのトークン自動付与
-- [x] 保護ルートの実装（未認証時リダイレクト）
-- [x] ヘッダーへのユーザー情報表示
-- [x] ログアウト機能の実装
+**フロントエンド**
+- [x] バリデーション付きログイン・登録ページ
+- [x] localStorage永続化対応Zustand認証ストア
+- [x] SSRハイドレーション対応AuthGuardコンポーネント
+- [x] リトライ機能付きトークンベースAPIクライアント
+- [x] 保護ルートと認証フロー
 
-#### その他
-- [ ] WebSocket接続への認証統合
-- [ ] 環境変数の追加（JWT_SECRET等）
-- [ ] Docker環境の更新
+**パフォーマンス最適化**
+- [x] リクエストキャッシュとデバウンス
+- [x] 指数バックオフリトライ付きレート制限
+- [x] 強制ログアウトなしの429エラーハンドリング
+- [x] WebSocket認証統合
 
-### フェーズ2: ワークスペース基本機能 (完了)
-- [x] ワークスペース作成API
-- [x] ワークスペース切り替えAPI
-- [x] ワークスペース切り替えUI
-- [x] ワークスペース設定ページ
-- [x] ページURLへのワークスペース情報追加
+### ✅ フェーズ2: ワークスペース管理 (完了)
 
-### フェーズ3: コラボレーション (未実装)
-- [ ] メンバー招待機能
-- [ ] 権限管理システム
+- [x] ワークスペースCRUD操作
+- [x] 新JWT生成によるワークスペース切り替え
+- [x] WorkspaceSwitcher UIコンポーネント
+- [x] 新規ワークスペース作成用CreateWorkspaceModal
+- [x] ロールベース権限付きワークスペース設定ページ
+- [x] 個人・チームワークスペースの区別
+
+### 🚧 フェーズ3: コラボレーション機能 (未実装)
+
+**次の優先事項:**
+- [ ] トークンベースメンバー招待システム
+- [ ] ロールベース権限システム（owner/admin/member/viewer）
 - [ ] メンバー管理UI
-- [ ] 権限に基づくUI制御
-- [ ] リアルタイム同期の権限チェック
+- [ ] 権限ベースUI制御
+- [ ] リアルタイムコラボレーション権限チェック
+
+### 🔮 フェーズ4: 高度な機能 (計画中)
+
+- [ ] ページ共有とパブリックリンク
+- [ ] バージョン履歴と復元機能
+- [ ] ページテンプレートとテンプレートライブラリ
+- [ ] 高度な検索・フィルタリング
+- [ ] 外部連携（Slack、Google Drive）
+- [ ] AI機能（要約、翻訳）
+- [ ] エクスポート機能（PDF、Word、Markdown）
