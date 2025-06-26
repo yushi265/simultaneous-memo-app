@@ -78,16 +78,17 @@ docker-compose restart frontend  # Restart specific service
 
 1. **User Authentication & Authorization**: JWT-based secure login with bcrypt password hashing
 2. **Multi-Workspace Support**: Personal and team workspaces with role-based access control
-3. **Real-time Collaborative Editing**: Using Yjs CRDT for conflict-free synchronization
-4. **Rich Text Editor**: TipTap with headings, lists, code blocks, and rich formatting
-5. **WebSocket Synchronization**: Real-time updates with user cursors and authentication
-6. **PostgreSQL with JSONB**: Flexible content storage with UUID primary keys
-7. **Performance Optimization**: Request caching, retry logic, and rate limiting
-8. **Image Management**: Upload, resize, optimization, and responsive serving
-9. **File Management**: General file upload with type validation and metadata storage
-10. **Auto-save**: 3-second debounced saving with error handling
-11. **Japanese UI**: Complete Japanese localization
-12. **Docker Environment**: Containerized development setup
+3. **Collaboration Features**: Member invitation system with token-based invites and role management
+4. **Real-time Collaborative Editing**: Using Yjs CRDT for conflict-free synchronization
+5. **Rich Text Editor**: TipTap with headings, lists, code blocks, and rich formatting
+6. **WebSocket Synchronization**: Real-time updates with user cursors and authentication
+7. **PostgreSQL with JSONB**: Flexible content storage with UUID primary keys
+8. **Performance Optimization**: Request caching, retry logic, and rate limiting
+9. **Image Management**: Upload, resize, optimization, and responsive serving
+10. **File Management**: General file upload with type validation and metadata storage
+11. **Auto-save**: 3-second debounced saving with error handling
+12. **Japanese UI**: Complete Japanese localization
+13. **Docker Environment**: Containerized development setup
 
 ## API Endpoints
 
@@ -104,6 +105,13 @@ docker-compose restart frontend  # Restart specific service
 - `PUT /api/workspaces/:id` - Update workspace
 - `DELETE /api/workspaces/:id` - Delete workspace
 - `POST /api/workspaces/:id/switch` - Switch to workspace (new JWT)
+- `POST /api/workspaces/:id/invite` - Invite member to workspace
+- `GET /api/workspaces/:id/members` - List workspace members
+- `PUT /api/workspaces/:id/members/:id` - Update member role
+- `DELETE /api/workspaces/:id/members/:id` - Remove member from workspace
+
+### Invitations
+- `POST /api/invitations/:token/accept` - Accept workspace invitation
 
 ### Pages
 - `GET /api/pages` - List workspace pages
@@ -206,16 +214,17 @@ docker-compose restart frontend  # Restart specific service
 - アーカイブ: ZIP, RAR, 7Z, TAR, GZ
 - コードファイル: JS, TS, JSON, XML, HTML, CSS, PY, GO, JAVA, CPP, C, SH, MD
 
-## 追加予定の機能
+## 将来の拡張機能
 
-### コラボレーション機能
-- ユーザー認証・権限管理
+### 高度なコラボレーション機能
+
 - メンション機能（@ユーザー名）
 - コメント・注釈機能
 - 変更履歴・バージョン管理
 - ページ共有（読み取り専用リンク）
 
 ### エディター拡張
+
 - マークダウンショートカット
 - 数式エディター（LaTeX）
 - 図表・チャート作成
@@ -223,6 +232,7 @@ docker-compose restart frontend  # Restart specific service
 - テンプレート機能
 
 ### 組織・検索
+
 - フォルダ・タグ管理
 - 全文検索
 - フィルター・ソート機能
@@ -230,61 +240,9 @@ docker-compose restart frontend  # Restart specific service
 - アーカイブ機能
 
 ### その他
+
 - オフライン編集対応
 - モバイルアプリ
 - 外部サービス連携（Slack、Google Drive等）
 - AI機能（要約、翻訳、文章校正）
 - エクスポート機能（PDF、Word）
-
-## 実装状況
-
-### ✅ フェーズ1: ユーザー認証 (完了)
-
-**バックエンド**
-- [x] User/Workspace/WorkspaceMemberモデル（UUID対応）
-- [x] ワークスペース分離によるデータベースマイグレーション
-- [x] bcryptパスワードハッシュ化 + JWT認証
-- [x] ワークスペースコンテキスト付き認証ミドルウェア
-- [x] 認証API完全実装（register/login/logout/me）
-- [x] 全エンドポイントへのワークスペース制約追加
-
-**フロントエンド**
-- [x] バリデーション付きログイン・登録ページ
-- [x] localStorage永続化対応Zustand認証ストア
-- [x] SSRハイドレーション対応AuthGuardコンポーネント
-- [x] リトライ機能付きトークンベースAPIクライアント
-- [x] 保護ルートと認証フロー
-
-**パフォーマンス最適化**
-- [x] リクエストキャッシュとデバウンス
-- [x] 指数バックオフリトライ付きレート制限
-- [x] 強制ログアウトなしの429エラーハンドリング
-- [x] WebSocket認証統合
-
-### ✅ フェーズ2: ワークスペース管理 (完了)
-
-- [x] ワークスペースCRUD操作
-- [x] 新JWT生成によるワークスペース切り替え
-- [x] WorkspaceSwitcher UIコンポーネント
-- [x] 新規ワークスペース作成用CreateWorkspaceModal
-- [x] ロールベース権限付きワークスペース設定ページ
-- [x] 個人・チームワークスペースの区別
-
-### 🚧 フェーズ3: コラボレーション機能 (未実装)
-
-**次の優先事項:**
-- [ ] トークンベースメンバー招待システム
-- [ ] ロールベース権限システム（owner/admin/member/viewer）
-- [ ] メンバー管理UI
-- [ ] 権限ベースUI制御
-- [ ] リアルタイムコラボレーション権限チェック
-
-### 🔮 フェーズ4: 高度な機能 (計画中)
-
-- [ ] ページ共有とパブリックリンク
-- [ ] バージョン履歴と復元機能
-- [ ] ページテンプレートとテンプレートライブラリ
-- [ ] 高度な検索・フィルタリング
-- [ ] 外部連携（Slack、Google Drive）
-- [ ] AI機能（要約、翻訳）
-- [ ] エクスポート機能（PDF、Word、Markdown）
