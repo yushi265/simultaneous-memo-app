@@ -53,6 +53,27 @@ func (WorkspaceMember) TableName() string {
 	return "workspace_members"
 }
 
+// WorkspaceInvitation represents a workspace invitation
+type WorkspaceInvitation struct {
+	ID          uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	WorkspaceID uuid.UUID `gorm:"type:uuid;not null" json:"workspace_id"`
+	InviterID   uuid.UUID `gorm:"type:uuid;not null" json:"inviter_id"`
+	Email       string    `gorm:"type:varchar(255);not null" json:"email"`
+	Role        string    `gorm:"type:varchar(50);not null;default:'member'" json:"role"`
+	Token       string    `gorm:"type:varchar(255);uniqueIndex;not null" json:"token"`
+	ExpiresAt   time.Time `gorm:"not null" json:"expires_at"`
+	AcceptedAt  *time.Time `json:"accepted_at,omitempty"`
+	CreatedAt   time.Time `gorm:"default:CURRENT_TIMESTAMP" json:"created_at"`
+	
+	// Relationships
+	Workspace Workspace `gorm:"foreignKey:WorkspaceID" json:"workspace,omitempty"`
+	Inviter   User      `gorm:"foreignKey:InviterID" json:"inviter,omitempty"`
+}
+
+func (WorkspaceInvitation) TableName() string {
+	return "workspace_invitations"
+}
+
 // Hook to create personal workspace after user creation
 func (u *User) AfterCreate(tx *gorm.DB) error {
 	// Create personal workspace

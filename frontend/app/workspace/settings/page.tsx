@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/store'
 import { workspaceApi, WorkspaceResponse } from '@/lib/workspace-api'
 import { Header } from '@/components/Header'
+import InviteMemberModal from '@/components/InviteMemberModal'
+import { PersonIcon, EnvelopeClosedIcon, TrashIcon, Pencil1Icon } from '@radix-ui/react-icons'
 
 export default function WorkspaceSettingsPage() {
   const { currentWorkspace, user } = useAuthStore()
@@ -15,6 +17,10 @@ export default function WorkspaceSettingsPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [members, setMembers] = useState<any[]>([])
+  const [invitations, setInvitations] = useState<any[]>([])
+  const [showInviteModal, setShowInviteModal] = useState(false)
+  const [activeTab, setActiveTab] = useState<'settings' | 'members'>('settings')
   const router = useRouter()
 
   useEffect(() => {
@@ -24,7 +30,11 @@ export default function WorkspaceSettingsPage() {
     }
     
     loadWorkspace()
-  }, [currentWorkspace, router])
+    if (activeTab === 'members') {
+      loadMembers()
+      loadInvitations()
+    }
+  }, [currentWorkspace, router, activeTab])
 
   const loadWorkspace = async () => {
     if (!currentWorkspace) return
@@ -66,6 +76,77 @@ export default function WorkspaceSettingsPage() {
       setError(err instanceof Error ? err.message : 'ワークスペースの更新に失敗しました')
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const loadMembers = async () => {
+    if (!currentWorkspace) return
+
+    try {
+      const response = await workspaceApi.getMembers(currentWorkspace.id)
+      setMembers(response.members)
+    } catch (err) {
+      console.error('Failed to load members:', err)
+    }
+  }
+
+  const loadInvitations = async () => {
+    if (!currentWorkspace) return
+
+    try {
+      const response = await workspaceApi.getInvitations(currentWorkspace.id)
+      setInvitations(response.invitations)
+    } catch (err) {
+      console.error('Failed to load invitations:', err)
+    }
+  }
+
+  const handleInviteSuccess = () => {
+    loadInvitations()
+    setSuccess('メンバーの招待を送信しました')
+    setTimeout(() => setSuccess(''), 3000)
+  }
+
+  const handleCancelInvitation = async (invitationId: string) => {
+    if (!currentWorkspace) return
+    
+    try {
+      await workspaceApi.cancelInvitation(currentWorkspace.id, invitationId)
+      loadInvitations()
+      setSuccess('招待をキャンセルしました')
+      setTimeout(() => setSuccess(''), 3000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '招待のキャンセルに失敗しました')
+    }
+  }
+
+  const handleUpdateMemberRole = async (memberId: string, newRole: string) => {
+    if (!currentWorkspace) return
+    
+    try {
+      await workspaceApi.updateMemberRole(currentWorkspace.id, memberId, newRole)
+      loadMembers()
+      setSuccess('メンバーの権限を更新しました')
+      setTimeout(() => setSuccess(''), 3000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'メンバー権限の更新に失敗しました')
+    }
+  }
+
+  const handleRemoveMember = async (memberId: string, memberName: string) => {
+    if (!currentWorkspace) return
+    
+    if (!confirm(`${memberName}をワークスペースから削除してもよろしいですか？`)) {
+      return
+    }
+    
+    try {
+      await workspaceApi.removeMember(currentWorkspace.id, memberId)
+      loadMembers()
+      setSuccess('メンバーを削除しました')
+      setTimeout(() => setSuccess(''), 3000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'メンバーの削除に失敗しました')
     }
   }
 
@@ -121,7 +202,7 @@ export default function WorkspaceSettingsPage() {
     <div className="min-h-screen bg-gray-50">
       <Header />
       
-      <div className="max-w-2xl mx-auto py-8 px-4">
+      <div className="max-w-4xl mx-auto py-8 px-4">
         <div className="bg-white rounded-lg shadow">
           {/* Header */}
           <div className="px-6 py-4 border-b border-gray-200">
@@ -129,8 +210,36 @@ export default function WorkspaceSettingsPage() {
               ワークスペース設定
             </h1>
             <p className="mt-1 text-sm text-gray-600">
-              ワークスペースの基本情報を管理します
+              ワークスペースの基本情報とメンバーを管理します
             </p>
+          </div>
+
+          {/* Tabs */}
+          <div className="px-6 py-0 border-b border-gray-200">
+            <nav className="flex space-x-8">
+              <button
+                onClick={() => setActiveTab('settings')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'settings'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                基本設定
+              </button>
+              {!workspace?.is_personal && (
+                <button
+                  onClick={() => setActiveTab('members')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'members'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  メンバー管理
+                </button>
+              )}
+            </nav>
           </div>
 
           {/* Content */}
@@ -147,7 +256,8 @@ export default function WorkspaceSettingsPage() {
               </div>
             )}
 
-            <form onSubmit={handleSave} className="space-y-6">
+            {activeTab === 'settings' && (
+              <form onSubmit={handleSave} className="space-y-6">
               {/* Basic Info */}
               <div>
                 <h3 className="text-lg font-medium text-gray-900 mb-4">基本情報</h3>
@@ -242,10 +352,117 @@ export default function WorkspaceSettingsPage() {
                   </div>
                 </div>
               )}
-            </form>
+              </form>
+            )}
+
+            {activeTab === 'members' && (
+              <div className="space-y-6">
+                {/* Member Management Header */}
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-medium text-gray-900">メンバー管理</h3>
+                  {canEdit && (
+                    <button
+                      onClick={() => setShowInviteModal(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    >
+                      <PersonIcon className="w-4 h-4" />
+                      メンバーを招待
+                    </button>
+                  )}
+                </div>
+
+                {/* Members List */}
+                <div>
+                  <h4 className="text-md font-medium text-gray-900 mb-3">
+                    メンバー ({members.length}名)
+                  </h4>
+                  <div className="bg-gray-50 rounded-lg divide-y divide-gray-200">
+                    {members.map((member) => (
+                      <div key={member.id} className="p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                            <PersonIcon className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">{member.user.name}</p>
+                            <p className="text-sm text-gray-500">{member.user.email}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <select
+                            value={member.role}
+                            onChange={(e) => handleUpdateMemberRole(member.user.id, e.target.value)}
+                            className="text-sm border border-gray-300 rounded px-2 py-1"
+                            disabled={member.role === 'owner' || !canEdit}
+                          >
+                            <option value="viewer">閲覧者</option>
+                            <option value="member">メンバー</option>
+                            <option value="admin">管理者</option>
+                            <option value="owner">オーナー</option>
+                          </select>
+                          {member.role !== 'owner' && canEdit && (
+                            <button
+                              onClick={() => handleRemoveMember(member.user.id, member.user.name)}
+                              className="text-red-600 hover:text-red-800"
+                            >
+                              <TrashIcon className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Pending Invitations */}
+                {invitations.length > 0 && (
+                  <div>
+                    <h4 className="text-md font-medium text-gray-900 mb-3">
+                      保留中の招待 ({invitations.length}件)
+                    </h4>
+                    <div className="bg-yellow-50 rounded-lg divide-y divide-yellow-200">
+                      {invitations.map((invitation) => (
+                        <div key={invitation.id} className="p-4 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+                              <EnvelopeClosedIcon className="w-4 h-4 text-yellow-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{invitation.email}</p>
+                              <p className="text-sm text-gray-500">
+                                {invitation.role} • {invitation.inviter.name}が招待
+                              </p>
+                            </div>
+                          </div>
+                          {canEdit && (
+                            <button
+                              onClick={() => handleCancelInvitation(invitation.id)}
+                              className="text-red-600 hover:text-red-800 text-sm"
+                            >
+                              キャンセル
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Invite Member Modal */}
+      {workspace && (
+        <InviteMemberModal
+          isOpen={showInviteModal}
+          onClose={() => setShowInviteModal(false)}
+          onSuccess={handleInviteSuccess}
+          workspaceId={workspace.id}
+          workspaceName={workspace.name}
+        />
+      )}
     </div>
   )
 }

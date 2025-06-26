@@ -114,5 +114,112 @@ export const workspaceApi = {
     }
     
     return response.json()
+  },
+
+  // Member invitation methods
+  async inviteMember(workspaceId: string, email: string, role: string): Promise<{invitation: any, invite_url: string, message: string}> {
+    const token = getToken()
+    const response = await fetch(`${API_URL}/api/workspaces/${workspaceId}/invitations`, {
+      method: 'POST',
+      headers: getAuthHeaders(token),
+      body: JSON.stringify({ email, role })
+    })
+    
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to send invitation')
+    }
+    
+    return response.json()
+  },
+
+  async getInvitations(workspaceId: string): Promise<{invitations: any[]}> {
+    const token = getToken()
+    const response = await fetch(`${API_URL}/api/workspaces/${workspaceId}/invitations`, {
+      headers: getAuthHeaders(token)
+    })
+    
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to get invitations')
+    }
+    
+    return response.json()
+  },
+
+  async cancelInvitation(workspaceId: string, invitationId: string): Promise<{message: string}> {
+    const token = getToken()
+    const response = await fetch(`${API_URL}/api/workspaces/${workspaceId}/invitations/${invitationId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(token)
+    })
+    
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to cancel invitation')
+    }
+    
+    return response.json()
+  },
+
+  async acceptInvitation(token: string): Promise<{message: string, workspace: Workspace, role: string}> {
+    const authToken = getToken()
+    const response = await fetch(`${API_URL}/api/invitations/${token}/accept`, {
+      method: 'POST',
+      headers: getAuthHeaders(authToken)
+    })
+    
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to accept invitation')
+    }
+    
+    return response.json()
+  },
+
+  // Member management methods
+  async getMembers(workspaceId: string): Promise<{members: any[]}> {
+    const token = getToken()
+    const response = await fetch(`${API_URL}/api/workspaces/${workspaceId}/members`, {
+      headers: getAuthHeaders(token)
+    })
+    
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to get members')
+    }
+    
+    return response.json()
+  },
+
+  async updateMemberRole(workspaceId: string, memberId: string, role: string): Promise<{member: any, message: string}> {
+    const token = getToken()
+    const response = await fetch(`${API_URL}/api/workspaces/${workspaceId}/members/${memberId}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(token),
+      body: JSON.stringify({ role })
+    })
+    
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to update member role')
+    }
+    
+    return response.json()
+  },
+
+  async removeMember(workspaceId: string, memberId: string): Promise<{message: string}> {
+    const token = getToken()
+    const response = await fetch(`${API_URL}/api/workspaces/${workspaceId}/members/${memberId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(token)
+    })
+    
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to remove member')
+    }
+    
+    return response.json()
   }
 }

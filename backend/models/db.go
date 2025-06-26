@@ -23,6 +23,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&User{},
 		&Workspace{},
 		&WorkspaceMember{},
+		&WorkspaceInvitation{},
 		&Page{},
 		&Image{},
 		&File{},

@@ -74,6 +74,17 @@ func main() {
 	protected.DELETE("/workspaces/:id", workspaceHandler.DeleteWorkspace)
 	protected.POST("/workspaces/:id/switch", workspaceHandler.SwitchWorkspace)
 	
+	// Member invitation routes (protected)
+	protected.POST("/workspaces/:id/invitations", workspaceHandler.InviteMember)
+	protected.GET("/workspaces/:id/invitations", workspaceHandler.GetInvitations)
+	protected.DELETE("/workspaces/:id/invitations/:invitation_id", workspaceHandler.CancelInvitation)
+	protected.POST("/invitations/:token/accept", workspaceHandler.AcceptInvitation)
+	
+	// Member management routes (protected)
+	protected.GET("/workspaces/:id/members", workspaceHandler.GetMembers)
+	protected.PUT("/workspaces/:id/members/:member_id", workspaceHandler.UpdateMemberRole)
+	protected.DELETE("/workspaces/:id/members/:member_id", workspaceHandler.RemoveMember)
+	
 	// Page routes (protected)
 	protected.GET("/pages", h.GetPages)
 	protected.POST("/pages", h.CreatePage)
