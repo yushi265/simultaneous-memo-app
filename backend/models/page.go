@@ -4,16 +4,26 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
 type Page struct {
-	ID        uint           `json:"id" gorm:"primaryKey"`
-	Title     string         `json:"title" gorm:"not null"`
-	Content   datatypes.JSON `json:"content" gorm:"type:jsonb"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
+	ID           uuid.UUID      `json:"id" gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
+	WorkspaceID  uuid.UUID      `json:"workspace_id" gorm:"type:uuid;not null"`
+	Title        string         `json:"title" gorm:"not null"`
+	Content      datatypes.JSON `json:"content" gorm:"type:jsonb"`
+	CreatedBy    uuid.UUID      `json:"created_by" gorm:"type:uuid"`
+	LastEditedBy uuid.UUID      `json:"last_edited_by" gorm:"type:uuid"`
+	IsPublic     bool           `json:"is_public" gorm:"default:false"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	
+	// Relationships
+	Workspace    Workspace      `gorm:"foreignKey:WorkspaceID" json:"workspace,omitempty"`
+	Creator      User           `gorm:"foreignKey:CreatedBy" json:"creator,omitempty"`
+	LastEditor   User           `gorm:"foreignKey:LastEditedBy" json:"last_editor,omitempty"`
 }
 
 // ImageReference represents an image reference within page content
@@ -33,35 +43,38 @@ type BlockContent struct {
 }
 
 // CreatePage creates a new page
-func CreatePage(db *gorm.DB, page *Page) error {
+func CreatePage(db *gorm.DB, page *Page, userID uuid.UUID) error {
+	page.CreatedBy = userID
+	page.LastEditedBy = userID
 	return db.Create(page).Error
 }
 
 // GetPageByID retrieves a page by ID
-func GetPageByID(db *gorm.DB, id uint) (*Page, error) {
+func GetPageByID(db *gorm.DB, id uuid.UUID, workspaceID uuid.UUID) (*Page, error) {
 	var page Page
-	err := db.First(&page, id).Error
+	err := db.Where("id = ? AND workspace_id = ?", id, workspaceID).First(&page).Error
 	if err != nil {
 		return nil, err
 	}
 	return &page, nil
 }
 
-// GetAllPages retrieves all pages
-func GetAllPages(db *gorm.DB) ([]Page, error) {
+// GetAllPages retrieves all pages in a workspace
+func GetAllPages(db *gorm.DB, workspaceID uuid.UUID) ([]Page, error) {
 	var pages []Page
-	err := db.Order("updated_at DESC").Find(&pages).Error
+	err := db.Where("workspace_id = ?", workspaceID).Order("updated_at DESC").Find(&pages).Error
 	return pages, err
 }
 
 // UpdatePage updates an existing page
-func UpdatePage(db *gorm.DB, id uint, updates map[string]interface{}) error {
-	return db.Model(&Page{}).Where("id = ?", id).Updates(updates).Error
+func UpdatePage(db *gorm.DB, id uuid.UUID, workspaceID uuid.UUID, updates map[string]interface{}, userID uuid.UUID) error {
+	updates["last_edited_by"] = userID
+	return db.Model(&Page{}).Where("id = ? AND workspace_id = ?", id, workspaceID).Updates(updates).Error
 }
 
 // DeletePage deletes a page
-func DeletePage(db *gorm.DB, id uint) error {
-	return db.Delete(&Page{}, id).Error
+func DeletePage(db *gorm.DB, id uuid.UUID, workspaceID uuid.UUID) error {
+	return db.Where("id = ? AND workspace_id = ?", id, workspaceID).Delete(&Page{}).Error
 }
 
 // ExtractImageReferences extracts all image references from page content
@@ -116,20 +129,20 @@ func ExtractImageReferences(content datatypes.JSON) ([]uint, error) {
 }
 
 // UpdateImageReferences updates the page_id for images referenced in the content
-func UpdateImageReferences(db *gorm.DB, pageID uint, content datatypes.JSON) error {
+func UpdateImageReferences(db *gorm.DB, pageID uuid.UUID, content datatypes.JSON) error {
 	imageIDs, err := ExtractImageReferences(content)
 	if err != nil {
 		return err
 	}
 
 	// First, unlink all images from this page
-	if err := db.Model(&Image{}).Where("page_id = ?", pageID).Update("page_id", nil).Error; err != nil {
+	if err := db.Model(&Image{}).Where("page_id = ?", pageID).Updates(map[string]interface{}{"page_id": nil}).Error; err != nil {
 		return err
 	}
 
 	// Then, link the referenced images
 	if len(imageIDs) > 0 {
-		if err := db.Model(&Image{}).Where("id IN ?", imageIDs).Update("page_id", pageID).Error; err != nil {
+		if err := db.Model(&Image{}).Where("id IN ?", imageIDs).Updates(map[string]interface{}{"page_id": pageID}).Error; err != nil {
 			return err
 		}
 	}

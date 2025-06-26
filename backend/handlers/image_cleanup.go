@@ -7,13 +7,14 @@ import (
 	"time"
 
 	"simultaneous-memo-app/backend/models"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 // DeleteImagesByPageID deletes all images associated with a page
-func DeleteImagesByPageID(db *gorm.DB, pageID uint) error {
+func DeleteImagesByPageID(db *gorm.DB, pageID uuid.UUID, workspaceID uuid.UUID) error {
 	// Get all images for the page
-	images, err := models.GetImagesByPageID(db, pageID)
+	images, err := models.GetImagesByPageID(db, pageID, workspaceID)
 	if err != nil {
 		return fmt.Errorf("画像の取得に失敗しました: %w", err)
 	}
@@ -37,7 +38,7 @@ func DeleteImagesByPageID(db *gorm.DB, pageID uint) error {
 		}
 
 		// Delete from database
-		if err := models.DeleteImage(db, image.ID); err != nil {
+		if err := models.DeleteImage(db, image.ID, workspaceID); err != nil {
 			errors = append(errors, fmt.Errorf("画像 %s のDB削除エラー: %w", image.Filename, err))
 		}
 	}
@@ -50,10 +51,10 @@ func DeleteImagesByPageID(db *gorm.DB, pageID uint) error {
 }
 
 // CleanupOrphanedImages removes images not associated with any page
-func CleanupOrphanedImages(db *gorm.DB, olderThan time.Duration) error {
+func CleanupOrphanedImages(db *gorm.DB, workspaceID uuid.UUID, olderThan time.Duration) error {
 	// Get orphaned images older than specified duration
 	cutoffTime := time.Now().Add(-olderThan)
-	orphanedImages, err := models.GetOrphanedImages(db, cutoffTime)
+	orphanedImages, err := models.GetOrphanedImages(db, workspaceID, cutoffTime)
 	if err != nil {
 		return fmt.Errorf("孤立した画像の取得に失敗しました: %w", err)
 	}
@@ -78,7 +79,7 @@ func CleanupOrphanedImages(db *gorm.DB, olderThan time.Duration) error {
 		}
 
 		// Delete from database
-		if err := models.DeleteImage(db, image.ID); err != nil {
+		if err := models.DeleteImage(db, image.ID, workspaceID); err != nil {
 			errors = append(errors, fmt.Errorf("画像 %s のDB削除エラー: %w", image.Filename, err))
 			continue
 		}

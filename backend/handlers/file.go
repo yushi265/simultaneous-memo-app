@@ -7,13 +7,14 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
 	"simultaneous-memo-app/backend/models"
+	"simultaneous-memo-app/backend/middleware"
 
 	"github.com/labstack/echo/v4"
+	"github.com/google/uuid"
 )
 
 const (
@@ -160,11 +161,24 @@ func (h *Handler) UploadFile(c echo.Context) error {
 		finalSize = fileInfo.Size()
 	}
 
+	// Get workspace and user IDs from context
+	workspaceID, err := middleware.GetWorkspaceID(c)
+	if err != nil {
+		return err
+	}
+
+	userID, err := middleware.GetUserID(c)
+	if err != nil {
+		return err
+	}
+
 	// Save image metadata to database
 	relativePath := fmt.Sprintf("/images/%d/%02d/%s", now.Year(), now.Month(), filename)
 	thumbRelativePath := fmt.Sprintf("/images/%d/%02d/%s", now.Year(), now.Month(), thumbFilename)
 	
 	imageRecord := &models.Image{
+		WorkspaceID:   workspaceID,
+		UserID:        userID,
 		Filename:      filename,
 		OriginalName:  file.Filename,
 		Path:          relativePath,
@@ -177,9 +191,8 @@ func (h *Handler) UploadFile(c echo.Context) error {
 
 	// Check if page_id is provided in the request
 	if pageIDStr := c.FormValue("page_id"); pageIDStr != "" {
-		if pageID, err := strconv.ParseUint(pageIDStr, 10, 32); err == nil {
-			pageIDUint := uint(pageID)
-			imageRecord.PageID = &pageIDUint
+		if pageID, err := uuid.Parse(pageIDStr); err == nil {
+			imageRecord.PageID = &pageID
 		}
 	}
 

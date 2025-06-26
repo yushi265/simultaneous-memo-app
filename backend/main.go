@@ -11,6 +11,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/go-playground/validator/v10"
 )
 
 func main() {
@@ -30,6 +31,9 @@ func main() {
 
 	// Initialize Echo
 	e := echo.New()
+	
+	// Set custom validator
+	e.Validator = &CustomValidator{validator: validator.New()}
 
 	// Middleware
 	e.Use(middleware.Logger())
@@ -38,6 +42,8 @@ func main() {
 
 	// Initialize handlers
 	h := handlers.NewHandler(db)
+	authHandler := handlers.NewAuthHandler(db)
+	workspaceHandler := handlers.NewWorkspaceHandler(db)
 
 	// Initialize rate limiters
 	fileUploadLimiter := customMiddleware.FileUploadRateLimiter()
@@ -49,44 +55,74 @@ func main() {
 	// Apply general rate limiting to all API routes
 	api.Use(generalAPILimiter.Middleware())
 	
-	// Page routes
-	api.GET("/pages", h.GetPages)
-	api.POST("/pages", h.CreatePage)
-	api.GET("/pages/:id", h.GetPage)
-	api.PUT("/pages/:id", h.UpdatePage)
-	api.DELETE("/pages/:id", h.DeletePage)
-
-	// Image upload with stricter rate limiting
-	api.POST("/upload", h.UploadFile, fileUploadLimiter.Middleware())
+	// Auth routes (public)
+	auth := api.Group("/auth")
+	auth.POST("/register", authHandler.Register)
+	auth.POST("/login", authHandler.Login)
+	auth.POST("/logout", authHandler.Logout)
+	auth.GET("/me", authHandler.Me, customMiddleware.AuthMiddleware())
 	
-	// General file upload with stricter rate limiting
-	api.POST("/upload/file", h.UploadGeneralFile, fileUploadLimiter.Middleware())
-	api.GET("/files", h.ListFiles)
-	api.GET("/files/:id", h.GetFileMetadata)
-	api.DELETE("/files/:id", h.DeleteFile)
-	api.GET("/files/*", h.GetFile)
-	api.GET("/file/*", h.ServeFile)
-
-	// Image management
-	api.GET("/images", h.GetImages)
-	api.GET("/images/:id", h.GetImageByID)
-	api.DELETE("/images/:id", h.DeleteImageByID)
+	// Protected routes group
+	protected := api.Group("")
+	protected.Use(customMiddleware.AuthMiddleware())
 	
-	// Responsive image serving
-	api.GET("/img/*", h.ServeImage)
+	// Workspace routes (protected)
+	protected.GET("/workspaces", workspaceHandler.GetWorkspaces)
+	protected.POST("/workspaces", workspaceHandler.CreateWorkspace)
+	protected.GET("/workspaces/:id", workspaceHandler.GetWorkspace)
+	protected.PUT("/workspaces/:id", workspaceHandler.UpdateWorkspace)
+	protected.DELETE("/workspaces/:id", workspaceHandler.DeleteWorkspace)
+	protected.POST("/workspaces/:id/switch", workspaceHandler.SwitchWorkspace)
 	
-	// Admin endpoints
-	api.POST("/admin/cleanup-images", h.CleanupImages)
+	// Member invitation routes (protected)
+	protected.POST("/workspaces/:id/invitations", workspaceHandler.InviteMember)
+	protected.GET("/workspaces/:id/invitations", workspaceHandler.GetInvitations)
+	protected.DELETE("/workspaces/:id/invitations/:invitation_id", workspaceHandler.CancelInvitation)
+	protected.POST("/invitations/:token/accept", workspaceHandler.AcceptInvitation)
+	
+	// Member management routes (protected)
+	protected.GET("/workspaces/:id/members", workspaceHandler.GetMembers)
+	protected.PUT("/workspaces/:id/members/:member_id", workspaceHandler.UpdateMemberRole)
+	protected.DELETE("/workspaces/:id/members/:member_id", workspaceHandler.RemoveMember)
+	
+	// Page routes (protected)
+	protected.GET("/pages", h.GetPages)
+	protected.POST("/pages", h.CreatePage)
+	protected.GET("/pages/:id", h.GetPage)
+	protected.PUT("/pages/:id", h.UpdatePage)
+	protected.DELETE("/pages/:id", h.DeletePage)
 
-	// WebSocket endpoint
+	// Image upload with stricter rate limiting (protected)
+	protected.POST("/upload", h.UploadFile, fileUploadLimiter.Middleware())
+	
+	// General file upload with stricter rate limiting (protected)
+	protected.POST("/upload/file", h.UploadGeneralFile, fileUploadLimiter.Middleware())
+	protected.GET("/files", h.ListFiles)
+	protected.GET("/files/:id", h.GetFileMetadata)
+	protected.DELETE("/files/:id", h.DeleteFile)
+	protected.GET("/file/*", h.ServeFile)
+
+	// Image management (protected)
+	protected.GET("/images", h.GetImages)
+	protected.GET("/images/:id", h.GetImageByID)
+	protected.DELETE("/images/:id", h.DeleteImageByID)
+	
+	// Responsive image serving (protected)
+	protected.GET("/img/*", h.ServeImage)
+	
+	// Admin endpoints (protected)
+	protected.POST("/admin/cleanup-images", h.CleanupImages)
+
+	// WebSocket endpoint (protected)
 	ws := websocket.NewHub()
 	go ws.Run()
 	
 	e.GET("/ws/:pageId", func(c echo.Context) error {
 		pageID := c.Param("pageId")
+		// TODO: Add auth validation for WebSocket
 		websocket.HandleWebSocket(ws, c.Response(), c.Request(), pageID)
 		return nil
-	})
+	}, customMiddleware.AuthMiddleware())
 
 	// Health check
 	e.GET("/health", func(c echo.Context) error {
@@ -98,4 +134,14 @@ func main() {
 	if err := e.Start(":" + cfg.Port); err != nil {
 		log.Fatal("Failed to start server:", err)
 	}
+}
+
+// CustomValidator implements echo.Validator interface
+type CustomValidator struct {
+	validator *validator.Validate
+}
+
+// Validate validates the input
+func (cv *CustomValidator) Validate(i interface{}) error {
+	return cv.validator.Struct(i)
 }

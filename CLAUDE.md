@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-リアルタイムメモ - Real-time collaborative memo application with simultaneous editing capabilities.
+リアルタイムメモ - Real-time collaborative memo application with simultaneous editing capabilities and multi-user workspace support.
 
 ## Technology Stack
 
@@ -14,15 +14,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Tailwind CSS v3 for styling
 - TipTap v2 for rich text editing with rich formatting options
 - Yjs for real-time synchronization
-- Zustand for state management
+- Zustand for state management with persistence
 - Radix UI icons
 - Custom logo component
 
 ### Backend
 - Go 1.23 with Echo v4 framework
-- PostgreSQL 16 with JSONB for page content
+- PostgreSQL 16 with JSONB for page content and UUID for primary keys
+- JWT authentication with bcrypt password hashing
 - WebSocket for real-time communication with Gorilla WebSocket
-- GORM v2 as ORM with datatypes support
+- GORM v2 as ORM with datatypes and hooks support
+- Rate limiting middleware for API protection
 - Air for hot reloading in development
 
 ## Development Commands
@@ -74,42 +76,67 @@ docker-compose restart frontend  # Restart specific service
 
 ## Key Features
 
-1. Real-time collaborative editing using Yjs CRDT
-2. Rich text editor with TipTap (headings, lists, code blocks, formatting)
-3. WebSocket-based synchronization with user cursors
-4. PostgreSQL with JSONB for flexible content storage
-5. Docker-based development environment
-6. Custom logo and Japanese UI
-7. Image upload functionality with resize and optimization
-8. General file upload functionality (PDF, documents, archives, code files)
-9. Auto-save with debouncing (1-second delay)
+1. **User Authentication & Authorization**: JWT-based secure login with bcrypt password hashing
+2. **Multi-Workspace Support**: Personal and team workspaces with role-based access control
+3. **Collaboration Features**: Member invitation system with token-based invites and role management
+4. **Real-time Collaborative Editing**: Using Yjs CRDT for conflict-free synchronization
+5. **Rich Text Editor**: TipTap with headings, lists, code blocks, and rich formatting
+6. **WebSocket Synchronization**: Real-time updates with user cursors and authentication
+7. **PostgreSQL with JSONB**: Flexible content storage with UUID primary keys
+8. **Performance Optimization**: Request caching, retry logic, and rate limiting
+9. **Image Management**: Upload, resize, optimization, and responsive serving
+10. **File Management**: General file upload with type validation and metadata storage
+11. **Auto-save**: 3-second debounced saving with error handling
+12. **Japanese UI**: Complete Japanese localization
+13. **Docker Environment**: Containerized development setup
 
 ## API Endpoints
 
+### Authentication
+- `POST /api/auth/register` - User registration with auto workspace creation
+- `POST /api/auth/login` - User login with JWT token
+- `POST /api/auth/logout` - User logout
+- `GET /api/auth/me` - Get current user info and workspaces
+
+### Workspaces
+- `GET /api/workspaces` - List user workspaces
+- `POST /api/workspaces` - Create new workspace
+- `GET /api/workspaces/:id` - Get workspace details
+- `PUT /api/workspaces/:id` - Update workspace
+- `DELETE /api/workspaces/:id` - Delete workspace
+- `POST /api/workspaces/:id/switch` - Switch to workspace (new JWT)
+- `POST /api/workspaces/:id/invite` - Invite member to workspace
+- `GET /api/workspaces/:id/members` - List workspace members
+- `PUT /api/workspaces/:id/members/:id` - Update member role
+- `DELETE /api/workspaces/:id/members/:id` - Remove member from workspace
+
+### Invitations
+- `POST /api/invitations/:token/accept` - Accept workspace invitation
+
 ### Pages
-- `GET /api/pages` - List all pages
-- `POST /api/pages` - Create new page
+- `GET /api/pages` - List workspace pages
+- `POST /api/pages` - Create new page in current workspace
 - `GET /api/pages/:id` - Get specific page
 - `PUT /api/pages/:id` - Update page
 - `DELETE /api/pages/:id` - Delete page
 
 ### Images
-- `POST /api/upload` - Upload image
-- `GET /api/img/*` - Responsive image serving
-- `GET /api/images` - List all images
-- `GET /api/images/:id` - Get specific image
+- `POST /api/upload` - Upload image with page association
+- `GET /api/img/*` - Responsive image serving with optimization
+- `GET /api/images` - List images in current workspace
+- `GET /api/images/:id` - Get specific image metadata
 - `DELETE /api/images/:id` - Delete image
 - `POST /api/admin/cleanup-images` - Cleanup orphaned images
 
 ### Files
-- `POST /api/upload/file` - Upload general file
-- `GET /api/files` - List all files (with optional filtering)
+- `POST /api/upload/file` - Upload general file with validation
+- `GET /api/files` - List files with filtering support
 - `GET /api/files/:id` - Get file metadata
 - `DELETE /api/files/:id` - Delete file
-- `GET /api/file/*` - Serve uploaded file
+- `GET /api/file/*` - Serve uploaded file with access control
 
 ### WebSocket
-- `GET /ws/:pageId` - WebSocket endpoint for real-time sync
+- `GET /ws/:pageId` - Real-time sync with authentication support
 
 ## URLs
 
@@ -187,16 +214,17 @@ docker-compose restart frontend  # Restart specific service
 - アーカイブ: ZIP, RAR, 7Z, TAR, GZ
 - コードファイル: JS, TS, JSON, XML, HTML, CSS, PY, GO, JAVA, CPP, C, SH, MD
 
-## 追加予定の機能
+## 将来の拡張機能
 
-### コラボレーション機能
-- ユーザー認証・権限管理
+### 高度なコラボレーション機能
+
 - メンション機能（@ユーザー名）
 - コメント・注釈機能
 - 変更履歴・バージョン管理
 - ページ共有（読み取り専用リンク）
 
 ### エディター拡張
+
 - マークダウンショートカット
 - 数式エディター（LaTeX）
 - 図表・チャート作成
@@ -204,6 +232,7 @@ docker-compose restart frontend  # Restart specific service
 - テンプレート機能
 
 ### 組織・検索
+
 - フォルダ・タグ管理
 - 全文検索
 - フィルター・ソート機能
@@ -211,6 +240,7 @@ docker-compose restart frontend  # Restart specific service
 - アーカイブ機能
 
 ### その他
+
 - オフライン編集対応
 - モバイルアプリ
 - 外部サービス連携（Slack、Google Drive等）

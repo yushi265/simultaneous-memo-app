@@ -89,11 +89,11 @@ func (rl *RateLimiter) Middleware() echo.MiddlewareFunc {
 // FileUploadRateLimiter creates a rate limiter specifically for file uploads
 // Allows 10 uploads per minute per IP
 func FileUploadRateLimiter() *RateLimiter {
-	return NewRateLimiter(10.0/60.0, 2) // 10 requests per minute, burst of 2
+	return NewRateLimiter(20.0/60.0, 5) // 20 requests per minute, burst of 5
 }
 
 // GeneralAPIRateLimiter creates a rate limiter for general API endpoints
 // Allows 60 requests per minute per IP
 func GeneralAPIRateLimiter() *RateLimiter {
-	return NewRateLimiter(1, 5) // 1 request per second, burst of 5
+	return NewRateLimiter(60.0/60.0, 20) // 60 requests per minute, burst of 20
 }

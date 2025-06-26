@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -11,7 +11,7 @@ import Collaboration from '@tiptap/extension-collaboration'
 import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
 import * as Y from 'yjs'
 import { WebsocketProvider } from 'y-websocket'
-import { useStore } from '@/lib/store'
+import { useStore, useAuthStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import { EditorMenuBar } from './EditorMenuBar'
 import { imageUploader } from '@/lib/image-upload'
@@ -26,9 +26,11 @@ interface EditorProps {
 
 export function Editor({ pageId }: EditorProps) {
   const { currentPage, updatePage } = useStore()
+  const { token } = useAuthStore()
   const ydocRef = useRef<Y.Doc | null>(null)
   const providerRef = useRef<WebsocketProvider | null>(null)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const titleTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const editorRef = useRef<HTMLDivElement>(null)
   const [showFileUpload, setShowFileUpload] = useState(false)
   const [hasFiles, setHasFiles] = useState(false)
@@ -38,12 +40,15 @@ export function Editor({ pageId }: EditorProps) {
     const ydoc = new Y.Doc()
     ydocRef.current = ydoc
 
-    // Connect to WebSocket
+    // Connect to WebSocket with authentication
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080'
     const provider = new WebsocketProvider(
       `${wsUrl}/ws/${pageId}`,
       'page-' + pageId,
-      ydoc
+      ydoc,
+      {
+        params: token ? { authorization: `Bearer ${token}` } : {}
+      }
     )
     providerRef.current = provider
 
@@ -51,7 +56,7 @@ export function Editor({ pageId }: EditorProps) {
       provider.destroy()
       ydoc.destroy()
     }
-  }, [pageId])
+  }, [pageId, token])
 
   const editor = useEditor({
     extensions: [
@@ -95,7 +100,7 @@ export function Editor({ pageId }: EditorProps) {
       saveTimeoutRef.current = setTimeout(() => {
         const content = editor.getJSON()
         saveContent(content)
-      }, 1000)
+      }, 3000)
     },
     editorProps: {
       handlePaste: (view, event, slice) => {
@@ -153,6 +158,16 @@ export function Editor({ pageId }: EditorProps) {
     }
   }
 
+  const debouncedTitleSave = useCallback((title: string) => {
+    if (titleTimeoutRef.current) {
+      clearTimeout(titleTimeoutRef.current)
+    }
+    
+    titleTimeoutRef.current = setTimeout(() => {
+      saveTitle(title)
+    }, 1000)
+  }, [pageId])
+
   // Handle drag and drop
   const handleDrop = async (event: React.DragEvent) => {
     event.preventDefault()
@@ -201,7 +216,7 @@ export function Editor({ pageId }: EditorProps) {
           value={currentPage.title}
           onChange={(e) => {
             updatePage(pageId, { title: e.target.value })
-            saveTitle(e.target.value)
+            debouncedTitleSave(e.target.value)
           }}
           className="text-3xl font-bold w-full outline-none border-none"
           placeholder="無題"

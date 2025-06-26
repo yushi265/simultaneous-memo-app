@@ -37,6 +37,7 @@ services:
       - DB_PASSWORD=dev123
       - DB_PORT=5432
       - DB_SSLMODE=disable
+      - JWT_SECRET=your-secret-key-for-development
     depends_on:
       - postgres
     networks:
